@@ -90,3 +90,29 @@ def test_rank_flash_models():
     names = ["models/gemini-2.5-flash", "models/gemini-2.5-flash-lite", "models/gemini-3.8-flash",
              "models/gemini-3.8-flash-preview-09", "models/gemini-3.8-pro", "models/gemini-3.8-flash-image"]
     assert ai.rank_flash_models(names) == ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+
+
+def test_gemini_timeout_moves_to_next_model(monkeypatch):
+    calls = []
+
+    class ReadTimeout(Exception):
+        pass
+
+    class FakeModels:
+        def generate_content(self, model, contents, config):
+            calls.append(model)
+            if model == "gemini-9.0-flash":
+                raise ReadTimeout("timed out")
+            return "ok"
+
+    class FakeClient:
+        models = FakeModels()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(ai, "_client", lambda: FakeClient())
+    monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
+    ai._RESOLVED.clear()
+    ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-8.5-flash"], available=[])
+    assert ai._generate("x", None) == "ok"
+    assert calls == ["gemini-9.0-flash", "gemini-8.5-flash"]   # no waiting on a slow model

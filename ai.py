@@ -28,6 +28,8 @@ _RESOLVED: dict = {}   # remembers the model list and which model last answered
 _SKIP = ("preview", "exp", "tts", "image", "live", "audio", "thinking", "embedding", "8b")
 RETRY_CODES = (429, 500, 503, 504)   # busy / rate-limited / temporary server errors
 WAITS = (2, 5)                       # seconds between attempts on the same model
+REQUEST_TIMEOUT_S = 30               # one request may take at most this long
+TOTAL_BUDGET_S = 75                  # the whole button click gives up after this long
 
 
 def rank_flash_models(names: list[str]) -> list[str]:
@@ -66,8 +68,12 @@ def model_candidates() -> list[str]:
 def _generate(contents: str, config: types.GenerateContentConfig):
     """Call Gemini with retries on busy/rate-limit errors, falling back to the next Flash model."""
     last = None
+    deadline = time.monotonic() + TOTAL_BUDGET_S
     for model in model_candidates():
         for attempt in range(len(WAITS) + 1):
+            if time.monotonic() > deadline:
+                raise RuntimeError(f"Gemini is busy right now (no answer within {TOTAL_BUDGET_S}s). "
+                                   f"Please try again in a minute. Last error: {last}")
             try:
                 with _client() as client:
                     resp = client.models.generate_content(model=model, contents=contents, config=config)
@@ -83,18 +89,24 @@ def _generate(contents: str, config: types.GenerateContentConfig):
                 if e.code in RETRY_CODES:               # still busy after retries: next model
                     break
                 raise                                   # e.g. invalid key / bad request: stop
+            except Exception as e:                      # network timeout: this model is too slow, try next
+                if "timeout" not in type(e).__name__.lower() and "timed out" not in str(e).lower():
+                    raise
+                last = f"{model} timed out after {REQUEST_TIMEOUT_S}s"
+                break
     raise RuntimeError(f"Gemini is busy or unavailable on all Flash models right now; please retry in a minute. "
                        f"Last error: {last}")
 
 
-APP_VERSION = "v5 (Gemini, auto model + retry)"
+APP_VERSION = "v6 (Gemini, timeouts + retry)"
 
 
 def _client() -> genai.Client:
     """A fresh client per call, always used inside `with`, so it stays open for the whole request.
     (Using a throwaway client inline let Python close it mid-call: 'client has been closed'.)"""
     key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    return genai.Client(api_key=key)
+    # Hard time limit per request (ms), and no hidden SDK retries: _generate() owns retrying.
+    return genai.Client(api_key=key, http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_S * 1000))
 
 
 def api_key_set() -> bool:
