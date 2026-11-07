@@ -28,7 +28,7 @@ _RESOLVED: dict = {}   # remembers the model list and which model last answered
 _SKIP = ("preview", "exp", "tts", "image", "live", "audio", "thinking", "embedding", "8b")
 RETRY_CODES = (429, 500, 503, 504)   # busy / rate-limited / temporary server errors
 WAITS = (2, 5)                       # seconds between attempts on the same model
-REQUEST_TIMEOUT_S = 30               # one request may take at most this long
+REQUEST_TIMEOUT_S = 20               # one request may take at most this long
 TOTAL_BUDGET_S = 75                  # the whole button click gives up after this long
 
 
@@ -70,7 +70,8 @@ def _generate(contents: str, config: types.GenerateContentConfig):
     """Call Gemini. 'Busy' (503) or a timeout -> move straight to the next model.
     Rate limit (429) -> wait briefly and retry the same model. Anything else (bad key, bad request) -> stop."""
     tried = []
-    deadline = time.monotonic() + TOTAL_BUDGET_S
+    t0 = time.monotonic()
+    deadline = t0 + TOTAL_BUDGET_S
     for model in model_candidates():
         for attempt in range(len(WAITS) + 1):
             if time.monotonic() > deadline:
@@ -79,6 +80,8 @@ def _generate(contents: str, config: types.GenerateContentConfig):
                 with _client() as client:
                     resp = client.models.generate_content(model=model, contents=contents, config=config)
                 _RESOLVED["model"] = model
+                _RESOLVED["last_call"] = (f"Answered by {model} in {time.monotonic() - t0:.0f}s"
+                                          + (f" · skipped: {'; '.join(tried)}" if tried else ""))
                 return resp
             except genai_errors.APIError as e:
                 tried.append(f"{model}: {e.code} {e.status or ''}".strip())
@@ -97,7 +100,7 @@ def _generate(contents: str, config: types.GenerateContentConfig):
                        "few minutes. Models tried: " + "; ".join(tried))
 
 
-APP_VERSION = "v7 (Gemini, model fallback)"
+APP_VERSION = "v8 (Gemini, model fallback)"
 
 
 def _client() -> genai.Client:

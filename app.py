@@ -132,13 +132,16 @@ with tab2:
             try:
                 fields, source = ai.extract_intake(message, channel, sender, str(received))
                 st.session_state.intake = {"fields": fields.model_dump(), "source": source,
-                                           "received": received, "channel": channel}
+                                           "received": received, "channel": channel,
+                                           "call": ai._RESOLVED.get("last_call", "")}
             except Exception as e:  # show the error rather than crash the app
                 st.error(f"AI call failed: {e}")
 
     it = st.session_state.get("intake")
     if it:
         fx = it["fields"]
+        if it.get("call"):
+            st.caption(it["call"])
         left, right = st.columns(2)
         with left:
             st.markdown("**Source: exactly what the AI was given**")
@@ -212,11 +215,14 @@ with tab3:
                 try:
                     text, source = ai.draft_agent_update(facts)
                     st.session_state.update_draft = {"rid": rid, "text": text, "source": source,
-                                                     "flags": ai.numbers_not_in_facts(text, facts)}
+                                                     "flags": ai.numbers_not_in_facts(text, facts),
+                                                     "call": ai._RESOLVED.get("last_call", "")}
                 except Exception as e:
                     st.error(f"AI call failed: {e}")
         d = st.session_state.get("update_draft")
         if d and d["rid"] == rid:
+            if d.get("call"):
+                st.caption(d["call"])
             if d["flags"]:
                 st.error(f"⚠️ Numbers in the draft that are NOT in the facts: {', '.join(d['flags'])}. Edit before approving.")
             else:
