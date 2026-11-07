@@ -1,6 +1,6 @@
 """
 BharatTrip Refund Desk: prototype.
-Run:  streamlit run app.py      (set ANTHROPIC_API_KEY for the two AI tabs)
+Run:  streamlit run app.py      (set GEMINI_API_KEY for the two AI tabs)
 
 Design rule: matching and money are plain code (recon.py, matching.py).
 The AI (ai.py) only reads messy text and writes messages, every AI output shows
@@ -18,12 +18,13 @@ import recon
 
 st.set_page_config(page_title="BharatTrip Refund Desk", layout="wide")
 SAMPLE = "data/BharatTrip_Refund_Data.xlsx"
-try:  # Streamlit Cloud: a key in the Secrets box is copied into the environment variable
-    if "ANTHROPIC_API_KEY" in st.secrets and not os.environ.get("ANTHROPIC_API_KEY"):
-        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+try:  # Streamlit Cloud: values in the Secrets box are copied into environment variables
+    for _k in ("GEMINI_API_KEY", "GEMINI_MODEL"):
+        if _k in st.secrets and not os.environ.get(_k):
+            os.environ[_k] = str(st.secrets[_k])
 except Exception:
     pass
-AI_READY = bool(os.environ.get("ANTHROPIC_API_KEY"))
+AI_READY = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
 
 for k, v in {"drafts": [], "approved": []}.items():
     st.session_state.setdefault(k, v)
@@ -57,7 +58,7 @@ else:
 today = pd.Timestamp(st.sidebar.date_input("Today's date (for ages)", value=date(2026, 6, 30)))
 sla = st.sidebar.number_input("Closed-but-unpaid alert after (days)", 1, 60, 7)
 st.sidebar.markdown("---")
-st.sidebar.write("AI features:", "✅ ready" if AI_READY else "⚠️ set `ANTHROPIC_API_KEY`")
+st.sidebar.write("AI features:", "✅ ready" if AI_READY else "⚠️ set `GEMINI_API_KEY`")
 st.sidebar.write(f"Approved items this session: **{len(st.session_state.approved)}**")
 if st.session_state.approved:
     st.sidebar.download_button("Download approval log (CSV)",

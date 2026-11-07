@@ -4,23 +4,29 @@ The only two places the AI is used:
   2. draft_agent_update: turn facts computed by code into a short, plain message to the agent
 
 The AI never matches records, never calculates money and never decides a refund's state.
-API key comes from the ANTHROPIC_API_KEY environment variable.
+Provider: Google Gemini (free tier). API key comes from the GEMINI_API_KEY (or GOOGLE_API_KEY) environment
+variable; the model can be changed with GEMINI_MODEL.
 """
 from __future__ import annotations
 
 import re
 from typing import Literal, Optional
 
-import anthropic
+import os
+
+from google import genai
+from google.genai import types
 from pydantic import BaseModel, Field
 
-MODEL = "claude-opus-5-5"
-# If the model declines a request, the API retries it on a fallback model automatically.
-FALLBACK = dict(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
 
-def _client() -> anthropic.Anthropic:
-    return anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
+def _client() -> genai.Client:
+    return genai.Client()  # reads GEMINI_API_KEY / GOOGLE_API_KEY
+
+
+def api_key_set() -> bool:
+    return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
 
 
 # ---------------------------------------------------------------- 1. Intake
@@ -53,18 +59,22 @@ For every field you fill, add an evidence item quoting the exact words you used.
 def extract_intake(message: str, channel: str, sender: str, received_on: str) -> tuple[IntakeFields, str]:
     """Returns the parsed fields and the exact text that was sent to the model (the 'source')."""
     source = f"Channel: {channel}\nFrom: {sender}\nReceived: {received_on}\n\nMessage:\n{message}"
-    resp = _client().beta.messages.parse(
+    resp = _client().models.generate_content(
         model=MODEL,
-        max_tokens=4000,
-        output_config={"effort": "low"},
-        system=INTAKE_SYSTEM,
-        messages=[{"role": "user", "content": source}],
-        output_format=IntakeFields,
-        **FALLBACK,
+        contents=source,
+        config=types.GenerateContentConfig(
+            system_instruction=INTAKE_SYSTEM,
+            response_mime_type="application/json",
+            response_schema=IntakeFields,   # Gemini must return JSON matching this schema
+            temperature=0,
+        ),
     )
-    if resp.stop_reason == "refusal" or resp.parsed_output is None:
-        raise RuntimeError("The model declined or returned no structured output.")
-    return resp.parsed_output, source
+    parsed = resp.parsed if isinstance(resp.parsed, IntakeFields) else None
+    if parsed is None:
+        if not resp.text:
+            raise RuntimeError("Gemini returned no output (possibly blocked by a safety filter).")
+        parsed = IntakeFields.model_validate_json(resp.text)  # raises if the JSON is invalid
+    return parsed, source
 
 
 # ---------------------------------------------------------------- 2. Agent update
@@ -81,18 +91,14 @@ Rules:
 
 def draft_agent_update(facts: dict) -> tuple[str, str]:
     source = "Facts (computed by code from both trackers):\n" + "\n".join(f"- {k}: {v}" for k, v in facts.items())
-    resp = _client().beta.messages.create(
+    resp = _client().models.generate_content(
         model=MODEL,
-        max_tokens=2000,
-        output_config={"effort": "low"},
-        system=UPDATE_SYSTEM,
-        messages=[{"role": "user", "content": source}],
-        **FALLBACK,
+        contents=source,
+        config=types.GenerateContentConfig(system_instruction=UPDATE_SYSTEM, temperature=0.3),
     )
-    if resp.stop_reason == "refusal":
-        raise RuntimeError("The model declined to draft this message.")
-    text = "".join(b.text for b in resp.content if b.type == "text").strip()
-    return text, source
+    if not resp.text:
+        raise RuntimeError("Gemini returned no text (possibly blocked by a safety filter).")
+    return resp.text.strip(), source
 
 
 def numbers_not_in_facts(draft: str, facts: dict) -> list[str]:

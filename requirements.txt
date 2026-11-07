@@ -2,6 +2,6 @@ pandas>=2.0
 openpyxl
 tabulate
 streamlit>=1.40
-anthropic>=2.6
+google-genai>=1.0
 pydantic>=2
 pytest

@@ -1,6 +1,6 @@
 """
 Live test of the two AI features on the three informal messages from the brief.
-Needs ANTHROPIC_API_KEY.   Run:  python test_ai.py
+Needs GEMINI_API_KEY.   Run:  python test_ai.py
 Prints the AI's JSON, the evidence quotes, and the plain-code matching decision for each.
 """
 import pandas as pd
