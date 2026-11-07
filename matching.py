@@ -131,3 +131,35 @@ def decide(fields: dict, m: pd.DataFrame, message_date: pd.Timestamp, existing_d
         reason = f"No reference and no close match in the trackers. Create draft {draft_id}."
     return {"decision": "NEW_DRAFT", "refund_id": draft_id, "agent_reference": ref,
             "reason": reason, "candidates": cands, "date_note": date_note}
+
+
+def candidate_view(cands: pd.DataFrame, m: pd.DataFrame, message_date: pd.Timestamp) -> pd.DataFrame:
+    """Side-by-side comparison of candidate refunds for the human (plain code, incl. expected payout)."""
+    if not len(cands):
+        return cands
+    rows = []
+    for _, c in cands.iterrows():
+        r = m[m.refund_id == c.refund_id].iloc[0]
+        ded = r.f_deduction if pd.notna(r.f_deduction) else 0
+        if r.true_state == "Paid" or r.f_status == "Refund Done":
+            payout, payout_note = r.f_paid, "paid"
+        elif r.true_state == "Declined":
+            payout, payout_note = 0, "declined"
+        elif pd.notna(r.s_amount):
+            payout, payout_note = r.s_amount - ded, "expected (requested − deduction)"
+        else:
+            payout, payout_note = None, "unknown"
+        rows.append({
+            "refund_id": c.refund_id,
+            "requested_on": c.date_any.date() if pd.notna(c.date_any) else None,
+            "logged_after_message": bool(pd.notna(c.date_any) and c.date_any > message_date),
+            "requested_inr": r.s_amount, "deduction_inr": ded, "payout_inr": payout, "payout_is": payout_note,
+            "status": r.true_state, "days_from_estimate": c.date_gap_days, "match_score": c.score,
+        })
+    return pd.DataFrame(rows)
+
+
+def option_label(row) -> str:
+    amt = f"₹{row.requested_inr:,.0f}" if pd.notna(row.requested_inr) else "amount unknown"
+    flag = " · logged AFTER the message" if row.logged_after_message else ""
+    return f"LINK: {row.refund_id} · requested {row.requested_on} · {amt} · {row.status}{flag}"

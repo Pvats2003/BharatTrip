@@ -161,3 +161,12 @@ def test_gemini_all_busy_lists_models_tried(monkeypatch):
     ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-8.5-flash-lite"], available=[])
     with pytest.raises(RuntimeError, match="gemini-9.0-flash: 503.*gemini-8.5-flash-lite: 503"):
         ai._generate("x", None)
+
+
+def test_candidate_view_payout_and_late_flag(m):
+    r = matching.decide({"agent_name": "Peak Journeys", "route": "DEL-DXB", "time_reference": "last week",
+                         "booking_reference": "RF-1099"}, m, pd.Timestamp("2026-06-05"), [])
+    v = matching.candidate_view(r["candidates"], m, pd.Timestamp("2026-06-05")).set_index("refund_id")
+    assert v.loc["RF-1145", "payout_inr"] == 21300 - 1700        # pending: requested minus deduction
+    assert bool(v.loc["RF-1145", "logged_after_message"]) is True
+    assert v.loc["RF-1023", "payout_inr"] == 11400                # paid: what Finance actually paid

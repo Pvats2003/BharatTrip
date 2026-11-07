@@ -165,8 +165,15 @@ with tab2:
             st.markdown("**Matching (plain code)**")
             res = matching.decide(fx, m, pd.Timestamp(it["received"]), st.session_state.drafts)
             st.caption(f"Date estimate: {res['date_note']['how']}")
-            if len(res["candidates"]):
-                st.dataframe(res["candidates"], hide_index=True, use_container_width=True)
+            view = matching.candidate_view(res["candidates"], m, pd.Timestamp(it["received"]))
+            if len(view):
+                st.markdown("**Compare possible matches** (amounts and payout are worked out by code from the trackers)")
+                st.dataframe(view, hide_index=True, use_container_width=True,
+                             column_config={c: st.column_config.NumberColumn(format="₹%d")
+                                            for c in ("requested_inr", "deduction_inr", "payout_inr")})
+                if view.logged_after_message.any():
+                    st.info("A record **logged after the message** may be this same request, logged late by Support. "
+                            "Check it before creating a new draft.")
             if res["decision"] == "LINK":
                 st.success(f"🔗 **Link to {res['refund_id']}**: {res['reason']}")
             else:
@@ -174,21 +181,31 @@ with tab2:
 
             with st.form("approve_intake"):
                 st.markdown("**Human check before anything is saved**")
-                options = [f"{res['decision']}: {res['refund_id']}"] + \
-                          [f"LINK: {r}" for r in res["candidates"].refund_id if r != res["refund_id"]]
+                first = f"{res['decision']}: {res['refund_id']}"
+                options = [first] + [matching.option_label(r) for r in view.itertuples()
+                                     if r.refund_id != res["refund_id"]]
                 choice = st.radio("Action", options)
+                st.caption("If you LINK, agent, route and amounts are taken from that tracker record. "
+                           "The fields below are only used for a new draft.")
                 e1, e2, e3 = st.columns(3)
                 agent = e1.text_input("Agent", fx.get("agent_name") or "")
                 route = e2.text_input("Route", fx.get("route") or "")
                 amount = e3.number_input("Amount (INR, 0 = unknown)", 0, value=int(fx.get("amount_inr") or 0))
                 if st.form_submit_button("✅ Approve"):
-                    action, rid = choice.split(": ")
+                    action, rid = choice.split(" · ")[0].split(": ")
+                    payout = None
+                    if action == "LINK" and rid in set(view.refund_id):
+                        v = view[view.refund_id == rid].iloc[0]
+                        rec = m[m.refund_id == rid].iloc[0]
+                        agent = rec.agent if pd.notna(rec.agent) else rec.f_agent
+                        route = rec.route if pd.notna(rec.route) else rec.f_route
+                        amount, payout = v.requested_inr, v.payout_inr
                     if action == "NEW_DRAFT":
                         st.session_state.drafts.append(rid)
                     st.session_state.approved.append({
                         "approved_at": datetime.now().isoformat(timespec="seconds"), "type": "intake",
                         "action": action, "refund_id": rid, "agent_reference": res.get("agent_reference"),
-                        "agent": agent, "route": route, "amount_inr": amount or None,
+                        "agent": agent, "route": route, "amount_inr": amount or None, "payout_inr": payout,
                         "channel": it["channel"], "received_on": str(it["received"]),
                         "source_text": it["source"]})
                     st.success(f"Saved: {action} {rid}. Owner: Support, next action: acknowledge to agent with this ticket ID.")
