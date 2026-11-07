@@ -409,3 +409,27 @@ def refund_facts(r: pd.Series) -> dict:
         f["Status"] = "Under review by our Support team, not yet sent for payment"
         f["Next step"] = "Support to confirm eligibility and send for payment"
     return f
+
+
+def payout_proof(r: pd.Series) -> dict:
+    """Amount to carry forward for one refund, with where each number comes from (plain code)."""
+    ded = r.f_deduction if pd.notna(r.f_deduction) and r.f_deduction > 0 else 0
+    lines = []
+    if pd.notna(r.s_amount):
+        lines.append(("Requested", r.s_amount, f"Support tracker, {r.refund_id}"))
+    if r.true_state == "Paid" or r.f_status == "Refund Done":
+        if ded:
+            lines.append(("Deduction", ded, "Finance tracker (reason not recorded)"))
+        lines.append(("Paid", r.f_paid, f"Finance tracker, paid on {_d(r.f_processed)}"))
+        return {"amount": r.f_paid, "kind": "Already paid", "lines": lines,
+                "check": (f"{_rs(r.s_amount)} − {_rs(ded)} = {_rs(r.f_paid)}"
+                          if pd.notna(r.s_amount) and ded and r.s_amount - ded == r.f_paid else None)}
+    if r.true_state == "Declined":
+        return {"amount": 0, "kind": "Declined, nothing to pay", "lines": lines, "check": None}
+    if pd.isna(r.s_amount):
+        return {"amount": None, "kind": "Amount unknown", "lines": lines, "check": None}
+    if ded:
+        lines.append(("Deduction", ded, "Finance tracker (reason not recorded)"))
+    payout = r.s_amount - ded
+    return {"amount": payout, "kind": "Expected payout (not paid yet)", "lines": lines,
+            "check": f"{_rs(r.s_amount)} − {_rs(ded)} = {_rs(payout)}" if ded else None}

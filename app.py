@@ -85,7 +85,7 @@ with tab1:
     issues = f1.multiselect("Issue", sorted(pc.issue.unique()), default=sorted(pc.issue.unique()))
     owners = f2.multiselect("Owner", sorted(pc.owner.unique()), default=sorted(pc.owner.unique()))
     view = pc[pc.issue.isin(issues) & pc.owner.isin(owners)]
-    st.dataframe(view, use_container_width=True, hide_index=True,
+    st.dataframe(view, width="stretch", hide_index=True,
                  column_config={"age_days": st.column_config.NumberColumn("age (days)"),
                                 "support_amount": st.column_config.NumberColumn(format="₹%d"),
                                 "finance_paid": st.column_config.NumberColumn(format="₹%d"),
@@ -94,11 +94,11 @@ with tab1:
 
     with st.expander("Summary by owner"):
         st.dataframe(pc.pivot_table(index="owner", columns="issue", values="refund_id",
-                                    aggfunc="count", fill_value=0), use_container_width=True)
+                                    aggfunc="count", fill_value=0), width="stretch")
     with st.expander("True state of every refund"):
         st.dataframe(m.true_state.value_counts().rename("refunds"))
     with st.expander("Cleaning log (every rule and rows affected)"):
-        st.dataframe(cleanlog, use_container_width=True, hide_index=True)
+        st.dataframe(cleanlog, width="stretch", hide_index=True)
 
 # ------------------------------------------------------------------ tab 2
 SAMPLES = {
@@ -116,8 +116,8 @@ SAMPLES = {
 
 with tab2:
     st.subheader("Turn an informal message into a ticket")
-    st.caption("The AI only reads the message into fields and quotes its evidence. "
-               "Matching and the link-or-create decision are plain code (matching.py).")
+    st.caption("Paste an email or WhatsApp message. AI reads it; every amount and match below comes from "
+               "our trackers, not the AI. Nothing is saved until you approve.")
     pick = st.selectbox("Load a message from the brief", list(SAMPLES))
     ch, snd, rcv, txt = SAMPLES[pick]
     a, b_, c_ = st.columns(3)
@@ -140,75 +140,150 @@ with tab2:
     it = st.session_state.get("intake")
     if it:
         fx = it["fields"]
-        if it.get("call"):
-            st.caption(it["call"])
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**Source: exactly what the AI was given**")
-            st.code(it["source"], language=None)
-            st.markdown("**Evidence the AI quoted for each field**")
-            st.dataframe(pd.DataFrame(fx["evidence"]), hide_index=True, use_container_width=True)
-        with right:
-            st.markdown("**Extracted fields (JSON from the AI; edit before approving)**")
-            st.json({k: v for k, v in fx.items() if k != "evidence"})
+        ev = {e["field"]: e["quote"] for e in fx.get("evidence", [])}
+        msg_date = pd.Timestamp(it["received"])
+        known = set(m.refund_id.dropna())
+
+        def proof(field):
+            return f" <span style='color:gray'>— from the message: “{ev[field]}”</span>" if field in ev else ""
+
+        # ---------- 1. What the message says
+        st.markdown("### 1. What the message says")
+        st.markdown(f"> {fx['summary_english']}")
+        if fx.get("language", "").lower() != "english":
+            st.caption(f"Message language: {fx['language']} (summary translated to English)")
 
         if fx["message_type"] != "refund_request_from_agent":
             closed_missing = m[m.true_state == "Closed in Support, missing in Finance"]
-            st.warning(f"This is **not a refund request from an agent** ({fx['message_type']}). "
-                       f"No ticket is created. Summary: {fx['summary_english']}")
+            st.warning("**This is not a refund request from a travel agent**, so no ticket is created.")
             if fx["message_type"] == "internal_note":
-                st.info(f"Related check (plain code): **{len(closed_missing)}** refunds are Closed in Support "
-                        f"but missing in Finance. See tab ① and filter Issue = 'Closed in Support, missing in Finance'.")
-                by_h = closed_missing.groupby("handler").size().sort_values(ascending=False).rename("closed, missing in Finance")
-                st.dataframe(by_h)
+                st.markdown("### 2. What our records show")
+                st.error(f"**{len(closed_missing)} refunds** are marked Closed by Support but **never reached Finance**, "
+                         f"worth **₹{closed_missing.s_amount.sum():,.0f}**. This matches what the note describes.")
+                by_h = (closed_missing.groupby("handler")
+                        .agg(refunds=("refund_id", "size"), amount=("s_amount", "sum"))
+                        .sort_values("refunds", ascending=False).reset_index()
+                        .rename(columns={"handler": "Closed by", "refunds": "Refunds", "amount": "Amount"}))
+                st.dataframe(by_h, hide_index=True, column_config={"Amount": st.column_config.NumberColumn(format="₹%d")})
+                st.markdown("### 3. Next step")
+                st.info("Open tab ① and filter Issue = *Closed in Support, missing in Finance*. Each row has an owner "
+                        "and the next action (send to Finance, reopen the ticket).")
         else:
-            st.markdown("**Matching (plain code)**")
-            res = matching.decide(fx, m, pd.Timestamp(it["received"]), st.session_state.drafts)
-            st.caption(f"Date estimate: {res['date_note']['how']}")
-            view = matching.candidate_view(res["candidates"], m, pd.Timestamp(it["received"]))
-            if len(view):
-                st.markdown("**Compare possible matches** (amounts and payout are worked out by code from the trackers)")
-                st.dataframe(view, hide_index=True, use_container_width=True,
-                             column_config={c: st.column_config.NumberColumn(format="₹%d")
-                                            for c in ("requested_inr", "deduction_inr", "payout_inr")})
-                if view.logged_after_message.any():
-                    st.info("A record **logged after the message** may be this same request, logged late by Support. "
-                            "Check it before creating a new draft.")
-            if res["decision"] == "LINK":
-                st.success(f"🔗 **Link to {res['refund_id']}**: {res['reason']}")
-            else:
-                st.warning(f"🆕 **Create {res['refund_id']}**: {res['reason']}")
+            est, how = matching.estimate_request_date(msg_date, fx.get("request_date"), fx.get("time_reference"))
+            ref = recon.norm_id(fx.get("booking_reference"))
+            rows = [
+                ("Travel agent", fx.get("agent_name") or "Not stated", proof("agent_name")),
+                ("Route", fx.get("route") or "Not stated", proof("route")),
+                ("When cancelled", (f"about {est:%d %b %Y}" if est is not None else "Not stated"),
+                 proof("time_reference") or proof("request_date")),
+                ("Amount", f"₹{fx['amount_inr']:,}" if fx.get("amount_inr") else "Not stated in the message",
+                 proof("amount_inr")),
+                ("Reference quoted", (ref or "None") + ("" if not ref else
+                 (" ✅ found in our records" if ref in known else " ❌ not in our records")), proof("booking_reference")),
+            ]
+            st.markdown("\n".join(f"- **{k}:** {v}{p}" for k, v, p in rows), unsafe_allow_html=True)
 
-            with st.form("approve_intake"):
-                st.markdown("**Human check before anything is saved**")
-                first = f"{res['decision']}: {res['refund_id']}"
-                options = [first] + [matching.option_label(r) for r in view.itertuples()
-                                     if r.refund_id != res["refund_id"]]
-                choice = st.radio("Action", options)
-                st.caption("If you LINK, agent, route and amounts are taken from that tracker record. "
-                           "The fields below are only used for a new draft.")
-                e1, e2, e3 = st.columns(3)
-                agent = e1.text_input("Agent", fx.get("agent_name") or "")
-                route = e2.text_input("Route", fx.get("route") or "")
-                amount = e3.number_input("Amount (INR, 0 = unknown)", 0, value=int(fx.get("amount_inr") or 0))
-                if st.form_submit_button("✅ Approve"):
-                    action, rid = choice.split(" · ")[0].split(": ")
-                    payout = None
-                    if action == "LINK" and rid in set(view.refund_id):
-                        v = view[view.refund_id == rid].iloc[0]
-                        rec = m[m.refund_id == rid].iloc[0]
-                        agent = rec.agent if pd.notna(rec.agent) else rec.f_agent
-                        route = rec.route if pd.notna(rec.route) else rec.f_route
-                        amount, payout = v.requested_inr, v.payout_inr
-                    if action == "NEW_DRAFT":
-                        st.session_state.drafts.append(rid)
-                    st.session_state.approved.append({
-                        "approved_at": datetime.now().isoformat(timespec="seconds"), "type": "intake",
-                        "action": action, "refund_id": rid, "agent_reference": res.get("agent_reference"),
-                        "agent": agent, "route": route, "amount_inr": amount or None, "payout_inr": payout,
-                        "channel": it["channel"], "received_on": str(it["received"]),
-                        "source_text": it["source"]})
-                    st.success(f"Saved: {action} {rid}. Owner: Support, next action: acknowledge to agent with this ticket ID.")
+            # ---------- 2. What our records show
+            st.markdown("### 2. What our records show")
+            if "res" not in it:  # decide once, so the draft number doesn't change on every click
+                it["res"] = matching.decide(fx, m, msg_date, st.session_state.drafts)
+            res = it["res"]
+            view = matching.candidate_view(res["candidates"], m, msg_date)
+            if res["decision"] == "LINK":
+                st.success(f"✅ **Found in our records: {res['refund_id']}.** {res['reason']}")
+            elif ref:
+                st.error(f"❌ **Not in Support or Finance records.** {ref} is not in either tracker, so this "
+                         f"request was never logged.")
+            else:
+                st.warning("⚠️ **No exact match in our records.** No reference was given and no record matches "
+                           "agent, route and date closely enough to be sure.")
+            if len(view):
+                st.markdown("**Refunds for the same agent that might be this one:**")
+                friendly = pd.DataFrame({
+                    "Refund": view.refund_id,
+                    "Requested on": view.requested_on,
+                    "Requested": view.requested_inr,
+                    "Deduction": view.deduction_inr,
+                    "Payout": view.payout_inr,
+                    "Status": view.status,
+                    "How close": view.match_score.map(lambda s: "High" if s >= 85 else "Medium" if s >= 60 else "Low"),
+                    "Note": [("Logged AFTER the message: may be this request, logged late"
+                              if r.logged_after_message else
+                              f"{int(r.days_from_estimate)} days from the cancellation date"
+                              if pd.notna(r.days_from_estimate) else "") for r in view.itertuples()],
+                })
+                money = {c: st.column_config.NumberColumn(format="₹%d") for c in ("Requested", "Deduction", "Payout")}
+                st.dataframe(friendly, hide_index=True, width="stretch", column_config=money)
+
+            # ---------- 3. Decide and send to the next stage
+            st.markdown("### 3. Decide what goes to the next stage")
+            if res["decision"] == "LINK":
+                labels = {f"This is {res['refund_id']} (found in our records)": ("LINK", res["refund_id"])}
+            else:
+                labels = {f"Create a new ticket {res['refund_id']}: request was never logged": ("NEW_DRAFT", res["refund_id"])}
+            for r in view.itertuples():
+                if r.refund_id != res["refund_id"]:
+                    hint = ", logged later by Support" if r.logged_after_message else ""
+                    labels[f"It is {r.refund_id} ({r.status}, requested {r.requested_on}{hint})"] = ("LINK", r.refund_id)
+            choice = st.radio("Your decision", list(labels), key=f"choice_{it['source'][:40]}")
+            action, rid = labels[choice]
+
+            st.markdown("**Amount to carry forward, with proof**")
+            if action == "LINK":
+                rec = m[m.refund_id == rid].iloc[0]
+                pf = recon.payout_proof(rec)
+                for label, amt, src in pf["lines"]:
+                    st.markdown(f"- {label}: **₹{amt:,.0f}** <span style='color:gray'>({src})</span>", unsafe_allow_html=True)
+                if pf["amount"] is not None:
+                    st.success(f"**{pf['kind']}: ₹{pf['amount']:,.0f}**" + (f"  ·  check: {pf['check']}" if pf["check"] else ""))
+                else:
+                    st.warning(pf["kind"])
+                agent = rec.agent if pd.notna(rec.agent) else rec.f_agent
+                route = rec.route if pd.notna(rec.route) else rec.f_route
+                amount, payout = rec.s_amount, pf["amount"]
+                owner, next_step = (("Finance", f"Release the payout of ₹{payout:,.0f}. Support: tell the agent the "
+                                     f"reference {rid} and explain any deduction.")
+                                    if rec.true_state in ("Pending in Finance", "Closed in Support, missing in Finance",
+                                                          "Open in Support") else
+                                    ("Support", f"Tell the agent the status of {rid} using tab ③."))
+            else:
+                agent, route = fx.get("agent_name"), fx.get("route")
+                if fx.get("amount_inr"):
+                    st.success(f"**Amount: ₹{fx['amount_inr']:,}**, stated in the message: “{ev.get('amount_inr', '')}”")
+                    amount = fx["amount_inr"]
+                else:
+                    st.warning("**Amount not stated in the message, and there is no tracker record to take it from.** "
+                               "Ask the agent to confirm the booking amount before sending this to Finance.")
+                    amount = st.number_input("Amount confirmed with the agent (₹), leave 0 if not yet confirmed",
+                                             0, step=100, key=f"amt_{it['source'][:40]}") or None
+                payout = None
+                owner, next_step = ("Support", f"Reply to {agent or 'the agent'} with ticket {rid}"
+                                    + ("" if amount else ", confirm the amount") + ", then send it to Finance.")
+
+            st.markdown(f"**Next stage:** owner **{owner}**. {next_step}")
+            if st.button("✅ Approve and send to next stage", type="primary", key=f"approve_{it['source'][:40]}"):
+                if action == "NEW_DRAFT" and rid not in st.session_state.drafts:
+                    st.session_state.drafts.append(rid)
+                st.session_state.approved.append({
+                    "approved_at": datetime.now().isoformat(timespec="seconds"), "type": "intake",
+                    "action": action, "refund_id": rid, "agent_reference": ref,
+                    "agent": agent, "route": route, "amount_inr": amount, "payout_inr": payout,
+                    "owner": owner, "next_step": next_step,
+                    "channel": it["channel"], "received_on": str(it["received"]), "source_text": it["source"]})
+                st.success(f"Saved: {'linked to' if action == 'LINK' else 'new ticket'} **{rid}**. It is in the "
+                           f"approval log (sidebar → Download).")
+
+        with st.expander("Technical details (audit trail)"):
+            if it.get("call"):
+                st.caption(it["call"])
+            st.markdown("**Exactly what the AI was given**")
+            st.code(it["source"], language=None)
+            st.markdown("**AI output (structured fields and quotes)**")
+            st.json(fx)
+            if "res" in it:
+                st.markdown("**Matching scores (plain code, matching.py)**")
+                st.caption(it["res"]["date_note"]["how"])
+                st.dataframe(it["res"]["candidates"], hide_index=True)
 
 # ------------------------------------------------------------------ tab 3
 with tab3:
