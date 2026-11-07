@@ -25,13 +25,18 @@ began in May. Each one is a break *between* the two teams, or between a team and
 - Hand-offs that *do* reach Finance arrive in a steady ~2.5 days in every month. The handoff doesn't slow down.
   Either the ticket reaches Finance or it never does.
 
+**Metric 1 definition (agreed):** Closed in Support but not paid in Finance = missing in Finance (69) **plus** still pending
+in Finance (12) = **81 refunds, ₹12.7 lakh**. Of these, **63 were closed more than 7 days ago** at 30 June (61 missing + 2 pending).
+Monthly by request date: 4 / 3 / 6 / 26 / 42.
+
 ## 2. What changed in May (handoff failures)
 - **Not a Portal-specific problem.** Portal has the most failures (32 of 56 in May–Jun), but Portal is 51% of all
   requests in every month. Failure *rates* rose on every channel, Feb–Apr → May–Jun:
   Portal 2.7% → 28.1%, WhatsApp 0% → 37.5%, Phone 5.6% → 19.1%, Email 2.6% → 15.4%.
 - **Partly concentrated in two handlers.** In May–Jun, Rakesh N. failed 44% of closed tickets (23 of 52, which is 41% of all
   failures) and Vikram T. failed 36% (10 of 28). Every other handler also rose, from 0–2% to 11–23%.
-  So the process broke for everyone in May, and two people's queues were hit hardest.
+  So the process broke for everyone in May, and two people's queues were hit hardest. Names are shown for ownership
+  and visibility, not blame. Rakesh also has the biggest queue (23% of closed tickets); whether his queue changed in May is on the validation list.
 - Most likely cause, which the data cannot prove: a change in May to how Support passes tickets to Finance, with no
   check that Finance actually received them. The internal note on 11 June describes exactly this.
 

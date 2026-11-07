@@ -1,0 +1,207 @@
+<!doctype html><html><head><meta charset='utf-8'><style>@page{size:A4;margin:14mm 15mm}body{font-family:Helvetica,Arial,sans-serif;font-size:9.6pt;line-height:1.36;color:#111}
+h1{font-size:15pt;margin:0 0 2px}h2{font-size:11.5pt;margin:10px 0 3px;border-bottom:1px solid #ccc}p{margin:4px 0}
+ul,ol{margin:3px 0;padding-left:18px}li{margin:1px 0}table{border-collapse:collapse;width:100%;margin:5px 0;font-size:8.8pt}
+th,td{border:1px solid #bbb;padding:2px 5px;text-align:left;vertical-align:top}th{background:#eef1f5}td:nth-child(n+2){}</style></head><body><h1>BharatTrip refunds: why escalations doubled, and how to bring them down</h1>
+<p><em>AI Operations Associate take-home · Data: Support and Finance trackers and escalation log, Feb–Jun 2026 (snapshot 30 June)</em></p>
+<h2>1. Problem diagnosis</h2>
+<p><strong>Escalations are not rising because of volume.</strong> Refund requests were flat at 142–152 a month, but escalations per 100 refunds went
+<strong>15.1 (Mar) → 17.7 (Apr) → 20.9 (May) → 52.8 (Jun)</strong>.</p>
+<p><strong>The real problem: no one owns the refund end to end, and the two teams' records never meet.</strong> Support and Finance each keep their own
+sheet with their own statuses. Nothing checks one against the other, and some requests never enter either. That gap was always there. In May, four new
+failures started flowing through it at once:</p>
+<ol>
+<li><strong>Support "Closed" stopped meaning "paid".</strong> 81 refunds are Closed in Support but not paid: 69 never reached Finance, 12 are still pending there.
+   Every one carries a note telling the agent it was done. The share of closed tickets missing in Finance went from 2–4% (Feb–Apr) to <strong>19% in May and 33% in June</strong>.</li>
+<li><strong>Informal requests are lost.</strong> Email and WhatsApp requests that nobody logs. 29 escalations point to a refund in <em>neither</em> tracker (including RF-1098 and RF-1099 from the brief), 20 of them in June.</li>
+<li><strong>A new deduction nobody explains.</strong> Deductions did not exist before May. Since then 81 refunds have had one (₹1.47 lakh, mostly ₹1,500), and no Support note mentions it.</li>
+<li><strong>Finance approvals stalled.</strong> Sign-offs fell from 41–46 a month to 1 in June, and all 58 pending payouts arrived in June.</li>
+</ol>
+<p>The old complaint type ("no status update") is flat or falling, but it shows the same root cause: <strong>54 of its 61 cases were already paid</strong>. Nobody told the agent.</p>
+<h2>2. Analysis</h2>
+<p><strong>Method.</strong> I cleaned both trackers in Python (fixed 58 malformed IDs, parsed 345 hand-typed dates, standardised 95 agent names, removed 12 duplicate rows),
+joined them on refund ID, and gave each of 749 refunds one "true state": Paid 571, Closed in Support but missing in Finance 69, Pending in Finance 55, Declined 38,
+In Finance only 16. Escalations were sorted into root causes with fixed keyword rules, then checked against the trackers. For example, all 31 "closed but not received"
+complaints with a ref sit on refunds that really are Closed-but-missing.</p>
+<table>
+<thead>
+<tr>
+<th>Escalations by root cause</th>
+<th>Mar</th>
+<th>Apr</th>
+<th>May</th>
+<th>Jun</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No status update (old type)</td>
+<td>18</td>
+<td>21</td>
+<td>11</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Handoff break: closed in Support, never reached Finance</td>
+<td>2</td>
+<td>2</td>
+<td>6</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Informal request never logged</td>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Amount / deduction not explained</td>
+<td>0</td>
+<td>0</td>
+<td>8</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Approval / payout delay</td>
+<td>0</td>
+<td>0</td>
+<td>2</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Decline not explained</td>
+<td>2</td>
+<td>0</td>
+<td>2</td>
+<td>1</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>23</strong></td>
+<td><strong>26</strong></td>
+<td><strong>31</strong></td>
+<td><strong>75</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Where the trackers agree, disagree, or fall silent.</strong></p>
+<ul>
+<li><strong>They agree</strong> on 571 paid refunds. Agent and route match on every refund found in both sheets.</li>
+<li><strong>They disagree</strong> on 51 amounts. In 50 of them, Support's amount minus Finance's deduction is exactly what was paid; the last is a Support double entry.</li>
+<li><strong>They fall silent</strong> on 69 Support-only closures, 16 Finance-only refunds (no ticket at all), and every unlogged email or WhatsApp request.</li>
+</ul>
+<p><strong>What changed in May.</strong></p>
+<ul>
+<li><strong>Not one channel.</strong> Portal has the most handoff failures (32 of 56 in May–June) only because it carries half of all requests. Failure rates rose on every channel:
+  Portal 2.7% → 28%, WhatsApp 0% → 38%, Phone 6% → 19%, Email 3% → 15%.</li>
+<li><strong>Two queues hit hardest.</strong> Rakesh N. (44% of his May–June closures went missing, 23 tickets) and Vikram T. (36%, 10 tickets) account for 59% of failures. But every handler rose from 0–2% to 11–23%, so this is a process break, not two individuals.</li>
+<li><strong>Handoff time didn't change.</strong> Refunds that did reach Finance still arrived in about 2.5 days in every month. A ticket either reached Finance or it never did.</li>
+<li><strong>Payouts slowed at sign-off.</strong> Received-to-paid time rose from 2.9 days (Feb–Mar) to 6.2 in May. Signed-off payouts took 15.6 days in May and 19.0 in June, against about 3.5 before.
+  A blank "Approved By" is <em>not</em> new: it was 71–73% blank in Feb–Apr too.</li>
+</ul>
+<p><strong>What I'd validate with more access.</strong></p>
+<ul>
+<li>What changed in the Support→Finance handoff in May (a new form, a new inbox, a staff change?).</li>
+<li>The deduction policy and when it started.</li>
+<li>Why approvals stopped in June (is the approver away?).</li>
+<li>The shared inbox and WhatsApp, for the true volume of unlogged requests.</li>
+<li><strong>9 refunds entered twice in Finance (₹2.05 lakh), to check against bank statements for double payouts.</strong></li>
+</ul>
+<h2>3. Solution design</h2>
+<p><strong>Single source of truth: one refund register, keyed on refund ID, with one status both teams share.</strong> Every request gets an ID the day it arrives,
+whatever the channel. Both teams update the same row, and Support can no longer "close" a refund on its own.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Set by</th>
+<th>Meaning, and what the agent is told</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Requested</td>
+<td>Support</td>
+<td>Logged with ID. Agent gets the ID the same day</td>
+</tr>
+<tr>
+<td>With Finance</td>
+<td>Support</td>
+<td>Sent to Finance; the register records who and when</td>
+</tr>
+<tr>
+<td>On hold (reason)</td>
+<td>Finance</td>
+<td>Supplier, approval or amount check. The reason is required</td>
+</tr>
+<tr>
+<td>Paid (amount, deduction + reason)</td>
+<td><strong>Finance only</strong></td>
+<td>Only now is the agent told "done", with any deduction explained</td>
+</tr>
+<tr>
+<td>Declined (policy reason)</td>
+<td>Finance</td>
+<td>The reason is required and goes to the agent</td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to automate (the prototype does all four):</strong></p>
+<ul>
+<li>A daily reconciliation of the two sheets that produces a problem list with owner, age in days and next action.</li>
+<li>AI intake of email and WhatsApp (including Hinglish) into a draft ticket, matched to existing refunds by rules.</li>
+<li>AI-drafted agent updates built from the true state, with the deduction explained.</li>
+<li>Number checks on every draft.</li>
+</ul>
+<p><strong>What to keep manual, and why:</strong></p>
+<ul>
+<li>Approving every AI output before it goes out. These are customer messages about money.</li>
+<li>Linking a message to a refund when the match is ambiguous. In the data, the same agent can have two refunds on the same route on the same day.</li>
+<li>Finance sign-off and declines, which are policy and money decisions.</li>
+<li>Setting the deduction policy, a business decision. The register only forces a reason to be recorded.</li>
+</ul>
+<p><strong>How the teams stay in sync, with no new headcount:</strong></p>
+<ul>
+<li>A 10-minute daily huddle between the Support lead and the Finance lead, working through the problem list.</li>
+<li>A backup approver, so sign-off never sits with one person.</li>
+<li>A one-line rule: <em>no "done" message until Finance marks it Paid.</em></li>
+</ul>
+<p>The time comes from work that disappears. Each of the 155 escalations meant repeated chasing. Automating logging, reconciliation and message drafting removes that rework instead of adding people.</p>
+<h2>4. Metrics</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Baseline (30 June)</th>
+<th>Good result after one month</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1. Refunds Closed in Support but not paid in Finance for more than 7 days</strong> (missing in Finance + still pending there)</td>
+<td><strong>63</strong> (of 81 closed-but-unpaid; ₹12.7 lakh)</td>
+<td><strong>Near zero (≤ 5)</strong>, and none older than 14 days</td>
+</tr>
+<tr>
+<td><strong>2. Escalations per 100 refunds</strong></td>
+<td><strong>52.8</strong> (June)</td>
+<td><strong>Back to the Mar–Apr level of 16.4</strong> (49 escalations / 299 refunds)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Guardrails to watch alongside them:</strong></p>
+<ul>
+<li>Median payout time back to 3 days or less.</li>
+<li>No pending payout older than 7 days.</li>
+<li>Zero escalations for refunds that are in no tracker.</li>
+</ul>
+<p><em>Key assumptions:</em></p>
+<ul>
+<li>Text dates are day-first (checked: no text date has a second part above 12).</li>
+<li>Where both sheets hold a refund, Finance decides whether money moved.</li>
+<li>Duplicates were kept once and flagged.</li>
+<li>Escalations per 100 refunds = escalations raised in a month ÷ refunds requested that month.</li>
+<li>No SLA exists in the data, so 7 days was chosen: successful handoffs take about 2.5 days.</li>
+<li>The true volume of informal requests is unknown beyond what the escalations show.</li>
+</ul>
+<p><em>Prototype:</em> a Streamlit app (link / repo <code>pvats2003/bharattrip</code>). Run it with <code>pip install -r requirements.txt &amp;&amp; streamlit run app.py</code>.</p></body></html>
