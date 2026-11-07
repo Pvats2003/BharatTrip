@@ -4,3 +4,4 @@ tabulate
 streamlit>=1.40
 anthropic>=2.6
 pydantic>=2
+pytest

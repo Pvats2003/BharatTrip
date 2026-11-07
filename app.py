@@ -18,6 +18,11 @@ import recon
 
 st.set_page_config(page_title="BharatTrip Refund Desk", layout="wide")
 SAMPLE = "data/BharatTrip_Refund_Data.xlsx"
+try:  # Streamlit Cloud: a key in the Secrets box is copied into the environment variable
+    if "ANTHROPIC_API_KEY" in st.secrets and not os.environ.get("ANTHROPIC_API_KEY"):
+        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+except Exception:
+    pass
 AI_READY = bool(os.environ.get("ANTHROPIC_API_KEY"))
 
 for k, v in {"drafts": [], "approved": []}.items():
