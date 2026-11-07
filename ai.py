@@ -50,55 +50,54 @@ def pick_flash_model(names: list[str]) -> str | None:
 
 
 def model_candidates() -> list[str]:
-    """GEMINI_MODEL first if set, then every usable Flash model this key can see (asked once)."""
+    """Order: GEMINI_MODEL (if set), the model that last worked, then every usable Flash model
+    this key can see, newest first, Flash-Lite last. The model list is fetched once."""
     if "candidates" not in _RESOLVED:
         with _client() as client:
             names = [mdl.name for mdl in client.models.list()
                      if not mdl.supported_actions or "generateContent" in mdl.supported_actions]
         _RESOLVED["candidates"] = rank_flash_models(names)
         _RESOLVED["available"] = [n.split("/")[-1] for n in names]
-    cands = ([MODEL_OVERRIDE] if MODEL_OVERRIDE else []) + \
-            [c for c in _RESOLVED["candidates"] if c != MODEL_OVERRIDE]
+    order = [MODEL_OVERRIDE, _RESOLVED.get("model")] + _RESOLVED["candidates"]
+    cands = list(dict.fromkeys(m for m in order if m))
     if not cands:
         raise RuntimeError("No Gemini Flash model available to this key. Set GEMINI_MODEL in Secrets. "
                            f"Available: {', '.join(_RESOLVED['available'][:15])}")
-    return cands[:4]
+    return cands[:6]
 
 
 def _generate(contents: str, config: types.GenerateContentConfig):
-    """Call Gemini with retries on busy/rate-limit errors, falling back to the next Flash model."""
-    last = None
+    """Call Gemini. 'Busy' (503) or a timeout -> move straight to the next model.
+    Rate limit (429) -> wait briefly and retry the same model. Anything else (bad key, bad request) -> stop."""
+    tried = []
     deadline = time.monotonic() + TOTAL_BUDGET_S
     for model in model_candidates():
         for attempt in range(len(WAITS) + 1):
             if time.monotonic() > deadline:
-                raise RuntimeError(f"Gemini is busy right now (no answer within {TOTAL_BUDGET_S}s). "
-                                   f"Please try again in a minute. Last error: {last}")
+                break
             try:
                 with _client() as client:
                     resp = client.models.generate_content(model=model, contents=contents, config=config)
                 _RESOLVED["model"] = model
                 return resp
             except genai_errors.APIError as e:
-                last = e
-                if e.code == 404:                       # model not usable with this key: try the next one
-                    break
-                if e.code in RETRY_CODES and attempt < len(WAITS):
+                tried.append(f"{model}: {e.code} {e.status or ''}".strip())
+                if e.code == 429 and attempt < len(WAITS):
                     time.sleep(WAITS[attempt])
                     continue
-                if e.code in RETRY_CODES:               # still busy after retries: next model
-                    break
+                if e.code in RETRY_CODES or e.code == 404:
+                    break                               # busy / unavailable / not found: next model
                 raise                                   # e.g. invalid key / bad request: stop
             except Exception as e:                      # network timeout: this model is too slow, try next
                 if "timeout" not in type(e).__name__.lower() and "timed out" not in str(e).lower():
                     raise
-                last = f"{model} timed out after {REQUEST_TIMEOUT_S}s"
+                tried.append(f"{model}: timed out after {REQUEST_TIMEOUT_S}s")
                 break
-    raise RuntimeError(f"Gemini is busy or unavailable on all Flash models right now; please retry in a minute. "
-                       f"Last error: {last}")
+    raise RuntimeError("Gemini is busy right now on every Flash model this key can use. Please try again in a "
+                       "few minutes. Models tried: " + "; ".join(tried))
 
 
-APP_VERSION = "v6 (Gemini, timeouts + retry)"
+APP_VERSION = "v7 (Gemini, model fallback)"
 
 
 def _client() -> genai.Client:

@@ -60,7 +60,7 @@ def test_number_guardrail(m):
 
 
 def test_gemini_retry_then_fallback(monkeypatch):
-    """Fake Gemini: newest model always busy (503) -> retried, then falls back to the next model."""
+    """Fake Gemini: newest model busy (503) -> falls straight back to the next model."""
     from google.genai import errors as ge
     calls = []
 
@@ -82,7 +82,7 @@ def test_gemini_retry_then_fallback(monkeypatch):
     ai._RESOLVED.clear()
     ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-8.5-flash"], available=[])
     assert ai._generate("x", None) == "ok"
-    assert calls == ["gemini-9.0-flash"] * 3 + ["gemini-8.5-flash"]
+    assert calls == ["gemini-9.0-flash", "gemini-8.5-flash"]   # 503 -> next model at once
     assert ai._RESOLVED["model"] == "gemini-8.5-flash"
 
 
@@ -116,3 +116,48 @@ def test_gemini_timeout_moves_to_next_model(monkeypatch):
     ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-8.5-flash"], available=[])
     assert ai._generate("x", None) == "ok"
     assert calls == ["gemini-9.0-flash", "gemini-8.5-flash"]   # no waiting on a slow model
+
+
+def test_gemini_429_retries_same_model(monkeypatch):
+    from google.genai import errors as ge
+    calls = []
+
+    class FakeModels:
+        def generate_content(self, model, contents, config):
+            calls.append(model)
+            if len(calls) == 1:
+                raise ge.ClientError(429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}})
+            return "ok"
+
+    class FakeClient:
+        models = FakeModels()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(ai, "_client", lambda: FakeClient())
+    monkeypatch.setattr(ai, "WAITS", (0, 0))
+    monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
+    ai._RESOLVED.clear()
+    ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-8.5-flash"], available=[])
+    assert ai._generate("x", None) == "ok"
+    assert calls == ["gemini-9.0-flash", "gemini-9.0-flash"]
+
+
+def test_gemini_all_busy_lists_models_tried(monkeypatch):
+    from google.genai import errors as ge
+
+    class FakeModels:
+        def generate_content(self, model, contents, config):
+            raise ge.ServerError(503, {"error": {"code": 503, "message": "busy", "status": "UNAVAILABLE"}})
+
+    class FakeClient:
+        models = FakeModels()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(ai, "_client", lambda: FakeClient())
+    monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
+    ai._RESOLVED.clear()
+    ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-8.5-flash-lite"], available=[])
+    with pytest.raises(RuntimeError, match="gemini-9.0-flash: 503.*gemini-8.5-flash-lite: 503"):
+        ai._generate("x", None)
