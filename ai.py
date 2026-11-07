@@ -21,8 +21,16 @@ from pydantic import BaseModel, Field
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
 
+_CLIENTS: dict = {}
+
+
 def _client() -> genai.Client:
-    return genai.Client()  # reads GEMINI_API_KEY / GOOGLE_API_KEY
+    """One long-lived client per API key. (A throwaway client gets garbage-collected mid-call,
+    which closes its connection: 'Cannot send a request, as the client has been closed'.)"""
+    key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if key not in _CLIENTS:
+        _CLIENTS[key] = genai.Client(api_key=key)
+    return _CLIENTS[key]
 
 
 def api_key_set() -> bool:
