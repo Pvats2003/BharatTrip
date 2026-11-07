@@ -43,6 +43,7 @@ def test_linking_rf1145_shows_amount_with_proof():
     assert "₹21,300" in t and "₹1,700" in t and "₹19,600" in t
     assert "Support tracker" in t and "Finance tracker" in t
     next(b for b in at.button if "Approve and send" in b.label).click().run()   # approve
+    assert any("Download approval log" in b.label for b in at.get("download_button")), "no download button after approve"
     log = at.session_state["approved"][-1]
     assert log["refund_id"] == "RF-1145" and log["payout_inr"] == 19600 and log["owner"] == "Finance"
 

@@ -17,7 +17,7 @@ import matching
 import recon
 
 st.set_page_config(page_title="BharatTrip Refund Desk", layout="wide")
-SAMPLE = "data/BharatTrip_Refund_Data.xlsx"
+SAMPLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "BharatTrip_Refund_Data.xlsx")
 try:  # Streamlit Cloud: values in the Secrets box are copied into environment variables
     for _k in ("GEMINI_API_KEY", "GEMINI_MODEL"):
         if _k in st.secrets and not os.environ.get(_k):
@@ -66,6 +66,17 @@ if st.session_state.approved:
     st.sidebar.download_button("Download approval log (CSV)",
                                pd.DataFrame(st.session_state.approved).to_csv(index=False),
                                "approval_log.csv")
+
+
+
+def log_download(key):
+    """Download button for the approval log, shown right where the user approves."""
+    if st.session_state.approved:
+        n = len(st.session_state.approved)
+        st.download_button(f"⬇️ Download approval log ({n} item{'s' if n != 1 else ''}, CSV)",
+                           pd.DataFrame(st.session_state.approved).to_csv(index=False),
+                           "approval_log.csv", key=key)
+
 
 tab1, tab2, tab3 = st.tabs(["① Daily problem cases", "② AI intake (email / WhatsApp)", "③ AI agent update"])
 
@@ -131,6 +142,7 @@ with tab2:
         with st.spinner("Reading message…"):
             try:
                 fields, source = ai.extract_intake(message, channel, sender, str(received))
+                st.session_state.pop("flash_intake", None)
                 st.session_state.intake = {"fields": fields.model_dump(), "source": source,
                                            "received": received, "channel": channel,
                                            "call": ai._RESOLVED.get("last_call", "")}
@@ -270,8 +282,12 @@ with tab2:
                     "agent": agent, "route": route, "amount_inr": amount, "payout_inr": payout,
                     "owner": owner, "next_step": next_step,
                     "channel": it["channel"], "received_on": str(it["received"]), "source_text": it["source"]})
-                st.success(f"Saved: {'linked to' if action == 'LINK' else 'new ticket'} **{rid}**. It is in the "
-                           f"approval log (sidebar → Download).")
+                st.session_state.flash_intake = (f"Saved: {'linked to' if action == 'LINK' else 'new ticket'} "
+                                                 f"**{rid}** · owner {owner} · {next_step}")
+                st.rerun()
+            if st.session_state.get("flash_intake"):
+                st.success(st.session_state.flash_intake)
+                log_download("dl_intake")
 
         with st.expander("Technical details (audit trail)"):
             if it.get("call"):
@@ -324,5 +340,10 @@ with tab3:
                 st.session_state.approved.append({
                     "approved_at": datetime.now().isoformat(timespec="seconds"), "type": "agent_update",
                     "refund_id": rid, "true_state": row.true_state, "message": edited, "source_text": d["source"]})
+                st.session_state.flash_update = {"rid": rid, "text": edited}
+                st.rerun()
+            fu = st.session_state.get("flash_update")
+            if fu and fu["rid"] == rid:
                 st.success("Approved. Copy the text below into email / WhatsApp. The prototype does not send anything.")
-                st.code(edited, language=None)
+                st.code(fu["text"], language=None)
+                log_download("dl_update")
