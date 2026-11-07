@@ -1,0 +1,201 @@
+refund_id,agent,issue,owner,age_days,next_action,support_amount,finance_paid,deduction,channel
+RF-1042,Metro Yatra,"Closed in Support, missing in Finance",Rakesh N.,139,Send to Finance with booking details; reopen ticket until Finance confirms payout,11800.0,,,Phone
+RF-1517,Nomad Travel,"Closed in Support, missing in Finance",Rakesh N.,137,Send to Finance with booking details; reopen ticket until Finance confirms payout,12100.0,,,Phone
+RF-1241,GoFly Holidays,"Closed in Support, missing in Finance",Sneha R.,136,Send to Finance with booking details; reopen ticket until Finance confirms payout,14400.0,,,Phone
+RF-1393,DeccanFly,Logged twice in Finance: check for double payout,Finance,124,Check bank statement for a second payout,20900.0,20900.0,0.0,Portal
+RF-1597,Peak Journeys,"Closed in Support, missing in Finance",Priya S.,123,Send to Finance with booking details; reopen ticket until Finance confirms payout,7700.0,,,Email
+RF-1545,Coral Voyages,Logged twice in Finance: check for double payout,Finance,121,Check bank statement for a second payout,19000.0,19000.0,0.0,Portal
+RF-1510,DeccanFly,In Finance only,Support,106,Create the missing Support ticket and confirm the request with the agent,,13500.0,0.0,
+RF-1455,Peak Journeys,In Finance only,Support,105,Create the missing Support ticket and confirm the request with the agent,,8400.0,0.0,
+RF-1238,DeccanFly,Logged twice in Finance: check for double payout,Finance,102,Check bank statement for a second payout,21400.0,21400.0,0.0,Portal
+RF-1606,BlueJet Tours,Logged twice in Finance: check for double payout,Finance,102,Check bank statement for a second payout,32500.0,32500.0,0.0,Portal
+RF-1081,Metro Yatra,"Closed in Support, missing in Finance",Vikram T.,97,Send to Finance with booking details; reopen ticket until Finance confirms payout,29000.0,,,Email
+RF-1177,Pinnacle Getaways,Logged twice in Finance: check for double payout,Finance,94,Check bank statement for a second payout,13300.0,13300.0,0.0,Email
+RF-1585,Wander Agency,"Closed in Support, missing in Finance",Vikram T.,92,Send to Finance with booking details; reopen ticket until Finance confirms payout,14100.0,,,Portal
+RF-1800,Anand Travels,"Closed in Support, missing in Finance",Aditi M.,90,Send to Finance with booking details; reopen ticket until Finance confirms payout,24800.0,,,Portal
+RF-1434,Peak Journeys,"Closed in Support, missing in Finance",Vikram T.,80,Send to Finance with booking details; reopen ticket until Finance confirms payout,12000.0,,,Portal
+RF-1858,Metro Yatra,"Closed in Support, missing in Finance",Rakesh N.,77,Send to Finance with booking details; reopen ticket until Finance confirms payout,9300.0,,,Phone
+RF-1847,BlueJet Tours,Amount mismatch: Unexplained (no deduction),Finance,76,Confirm the correct amount and explain the difference to the agent,23500.0,24500.0,0.0,Email
+RF-1741,Peak Journeys,In Finance only,Support,76,Create the missing Support ticket and confirm the request with the agent,,7300.0,0.0,
+RF-1190,Pinnacle Getaways,"Closed in Support, missing in Finance",Rakesh N.,71,Send to Finance with booking details; reopen ticket until Finance confirms payout,8800.0,,,Portal
+RF-1704,GoFly Holidays,"Closed in Support, missing in Finance",Rakesh N.,70,Send to Finance with booking details; reopen ticket until Finance confirms payout,31300.0,,,Portal
+RF-1851,Voyage Desk,Logged twice in Finance: check for double payout,Finance,69,Check bank statement for a second payout,30500.0,30500.0,0.0,Email
+RF-1508,Metro Yatra,"Closed in Support, missing in Finance",Rakesh N.,68,Send to Finance with booking details; reopen ticket until Finance confirms payout,13700.0,,,Portal
+RF-1645,BlueJet Tours,"Closed in Support, missing in Finance",Rakesh N.,63,Send to Finance with booking details; reopen ticket until Finance confirms payout,26400.0,,,Phone
+RF-1395,Wander Agency,Logged twice in Finance: check for double payout,Finance,61,Check bank statement for a second payout,24100.0,24100.0,0.0,Portal
+RF-1418,Orbit Travels,"Closed in Support, missing in Finance",Vikram T.,59,Send to Finance with booking details; reopen ticket until Finance confirms payout,6300.0,,,Portal
+RF-1040,Voyage Desk,"Closed in Support, missing in Finance",Rakesh N.,57,Send to Finance with booking details; reopen ticket until Finance confirms payout,6400.0,,,Portal
+RF-1118,Lotus Travel Co,"Closed in Support, missing in Finance",Rakesh N.,56,Send to Finance with booking details; reopen ticket until Finance confirms payout,14600.0,,,Phone
+RF-1216,Wander Agency,In Finance only,Support,56,Create the missing Support ticket and confirm the request with the agent,,15000.0,0.0,
+RF-1266,TripHub,"Closed in Support, missing in Finance",Priya S.,55,Send to Finance with booking details; reopen ticket until Finance confirms payout,16000.0,,,Phone
+RF-1465,Wander Agency,Paid less than Support promised (deduction),Rakesh N.,52,Tell the agent about the deduction and why,11100.0,9600.0,1500.0,Portal
+RF-1018,Voyage Desk,"Closed in Support, missing in Finance",Faizan K.,51,Send to Finance with booking details; reopen ticket until Finance confirms payout,14500.0,,,Portal
+RF-1197,GoFly Holidays,Paid less than Support promised (deduction),Vikram T.,51,Tell the agent about the deduction and why,17700.0,16200.0,1500.0,Phone
+RF-1805,Peak Journeys,Paid less than Support promised (deduction),Sneha R.,50,Tell the agent about the deduction and why,11800.0,10300.0,1500.0,Phone
+RF-1160,GoFly Holidays,Paid less than Support promised (deduction),Vikram T.,49,Tell the agent about the deduction and why,14000.0,12500.0,1500.0,Email
+RF-1860,Sunrise Trips,"Closed in Support, missing in Finance",Rakesh N.,49,Send to Finance with booking details; reopen ticket until Finance confirms payout,20400.0,,,WhatsApp
+RF-1500,Wander Agency,Paid less than Support promised (deduction),Priya S.,49,Tell the agent about the deduction and why,19900.0,18300.0,1600.0,Phone
+RF-1225,Voyage Desk,Paid less than Support promised (deduction),Aditi M.,49,Tell the agent about the deduction and why,19800.0,18200.0,1600.0,WhatsApp
+RF-1273,TripHub,"Closed in Support, missing in Finance",Rakesh N.,48,Send to Finance with booking details; reopen ticket until Finance confirms payout,6500.0,,,Portal
+RF-1237,TripHub,Paid less than Support promised (deduction),Sneha R.,48,Tell the agent about the deduction and why,19800.0,18200.0,1600.0,Portal
+RF-1139,Nomad Travel,Paid less than Support promised (deduction),Rakesh N.,48,Tell the agent about the deduction and why,15900.0,14400.0,1500.0,Portal
+RF-1661,Lotus Travel Co,Paid less than Support promised (deduction),Sneha R.,47,Tell the agent about the deduction and why,24100.0,22200.0,1900.0,Phone
+RF-1110,Lotus Travel Co,In Finance only,Support,47,Create the missing Support ticket and confirm the request with the agent,,18300.0,1600.0,
+RF-1199,Nomad Travel,"Closed in Support, missing in Finance",Priya S.,47,Send to Finance with booking details; reopen ticket until Finance confirms payout,24700.0,,,Portal
+RF-1075,Nomad Travel,"Closed in Support, missing in Finance",Priya S.,47,Send to Finance with booking details; reopen ticket until Finance confirms payout,12600.0,,,Email
+RF-1023,Peak Journeys,Paid less than Support promised (deduction),Faizan K.,46,Tell the agent about the deduction and why,12900.0,11400.0,1500.0,Email
+RF-1468,Voyage Desk,Paid less than Support promised (deduction),Rakesh N.,45,Tell the agent about the deduction and why,27700.0,25500.0,2200.0,Phone
+RF-1080,Lotus Travel Co,Paid less than Support promised (deduction),Vikram T.,44,Tell the agent about the deduction and why,19300.0,17800.0,1500.0,Phone
+RF-1321,Wander Agency,Paid less than Support promised (deduction),Sneha R.,43,Tell the agent about the deduction and why,30500.0,28100.0,2400.0,Phone
+RF-1843,GoFly Holidays,Paid less than Support promised (deduction),Priya S.,43,Tell the agent about the deduction and why,24900.0,22900.0,2000.0,Unknown
+RF-1144,SafarNama Travel,"Closed in Support, missing in Finance",Vikram T.,41,Send to Finance with booking details; reopen ticket until Finance confirms payout,22900.0,,,Portal
+RF-1085,ZipTrip,"Closed in Support, missing in Finance",Unassigned,41,Send to Finance with booking details; reopen ticket until Finance confirms payout,16500.0,,,Portal
+RF-1065,BlueJet Tours,Paid less than Support promised (deduction),Aditi M.,41,Tell the agent about the deduction and why,14300.0,12800.0,1500.0,WhatsApp
+RF-1556,GoFly Holidays,In Finance only,Support,41,Create the missing Support ticket and confirm the request with the agent,,14300.0,1500.0,
+RF-1355,Peak Journeys,Paid less than Support promised (deduction),Rakesh N.,40,Tell the agent about the deduction and why,8700.0,7200.0,1500.0,Portal
+RF-1724,TripHub,Paid less than Support promised (deduction),Vikram T.,40,Tell the agent about the deduction and why,29600.0,27200.0,2400.0,Phone
+RF-1416,Wander Agency,Paid less than Support promised (deduction),Aditi M.,40,Tell the agent about the deduction and why,24600.0,22600.0,2000.0,Email
+RF-1493,Nomad Travel,Paid less than Support promised (deduction),Unassigned,39,Tell the agent about the deduction and why,17300.0,15800.0,1500.0,Phone
+RF-1068,Nomad Travel,Paid less than Support promised (deduction),Priya S.,38,Tell the agent about the deduction and why,19500.0,17900.0,1600.0,Phone
+RF-1577,DeccanFly,"Closed in Support, missing in Finance",Rakesh N.,38,Send to Finance with booking details; reopen ticket until Finance confirms payout,34700.0,,,Portal
+RF-1810,BlueJet Tours,"Closed in Support, missing in Finance",Sneha R.,38,Send to Finance with booking details; reopen ticket until Finance confirms payout,15100.0,,,Portal
+RF-1533,Metro Yatra,"Closed in Support, missing in Finance",Rakesh N.,38,Send to Finance with booking details; reopen ticket until Finance confirms payout,,,,Phone
+RF-1551,Peak Journeys,Paid less than Support promised (deduction),Priya S.,38,Tell the agent about the deduction and why,33900.0,31200.0,2700.0,Portal
+RF-1382,Wander Agency,Paid less than Support promised (deduction),Priya S.,38,Tell the agent about the deduction and why,16600.0,15100.0,1500.0,Portal
+RF-1638,Wander Agency,"Closed in Support, missing in Finance",Rakesh N.,38,Send to Finance with booking details; reopen ticket until Finance confirms payout,7400.0,,,Portal
+RF-1716,Lotus Travel Co,"Closed in Support, missing in Finance",Rakesh N.,36,Send to Finance with booking details; reopen ticket until Finance confirms payout,14200.0,,,Portal
+RF-1566,Skyline Travels,"Closed in Support, missing in Finance",Rakesh N.,36,Send to Finance with booking details; reopen ticket until Finance confirms payout,9500.0,,,Phone
+RF-1558,Peak Journeys,"Closed in Support, missing in Finance",Priya S.,35,Send to Finance with booking details; reopen ticket until Finance confirms payout,9000.0,,,Portal
+RF-1422,Wander Agency,Paid less than Support promised (deduction),Faizan K.,35,Tell the agent about the deduction and why,10200.0,8700.0,1500.0,Portal
+RF-1411,Peak Journeys,"Closed in Support, missing in Finance",Rakesh N.,35,Send to Finance with booking details; reopen ticket until Finance confirms payout,6200.0,,,Email
+RF-1161,Nomad Travel,Paid less than Support promised (deduction),Faizan K.,34,Tell the agent about the deduction and why,18700.0,17200.0,1500.0,Email
+RF-1183,Global Wings,"Closed in Support, missing in Finance",Vikram T.,34,Send to Finance with booking details; reopen ticket until Finance confirms payout,8700.0,,,Portal
+RF-1064,Orbit Travels,"Closed in Support, missing in Finance",Vikram T.,32,Send to Finance with booking details; reopen ticket until Finance confirms payout,17700.0,,,Portal
+RF-1499,Peak Journeys,"Closed in Support, missing in Finance",Faizan K.,32,Send to Finance with booking details; reopen ticket until Finance confirms payout,18300.0,,,Portal
+RF-1336,TripHub,"Closed in Support, missing in Finance",Aditi M.,32,Send to Finance with booking details; reopen ticket until Finance confirms payout,23300.0,,,Phone
+RF-1689,Voyage Desk,Paid less than Support promised (deduction),Sneha R.,31,Tell the agent about the deduction and why,32100.0,29500.0,2600.0,Phone
+RF-1211,Metro Yatra,Paid less than Support promised (deduction),Aditi M.,30,Tell the agent about the deduction and why,25200.0,23200.0,2000.0,Portal
+RF-1654,Wander Agency,"Closed in Support, missing in Finance",Rakesh N.,30,Send to Finance with booking details; reopen ticket until Finance confirms payout,17200.0,,,Portal
+RF-1104,GoFly Holidays,Paid less than Support promised (deduction),Priya S.,29,Tell the agent about the deduction and why,12700.0,11200.0,1500.0,Portal
+RF-1451,Yatri Junction,"Closed in Support, missing in Finance",Sneha R.,29,Send to Finance with booking details; reopen ticket until Finance confirms payout,29400.0,,,Portal
+RF-1672,TripHub,Logged twice in Finance: check for double payout,Finance,28,Check bank statement for a second payout,26400.0,26400.0,0.0,Phone
+RF-1028,BlueJet Tours,Paid less than Support promised (deduction),Sneha R.,27,Tell the agent about the deduction and why,11700.0,10200.0,1500.0,Unknown
+RF-1816,TripHub,"Closed in Support, missing in Finance",Rakesh N.,27,Send to Finance with booking details; reopen ticket until Finance confirms payout,27900.0,,,Email
+RF-1752,GoFly Holidays,Paid less than Support promised (deduction),Vikram T.,27,Tell the agent about the deduction and why,16000.0,14500.0,1500.0,Email
+RF-1702,Wander Agency,Paid less than Support promised (deduction),Aditi M.,27,Tell the agent about the deduction and why,32200.0,29600.0,2600.0,Portal
+RF-1624,Wander Agency,Paid less than Support promised (deduction),Aditi M.,27,Tell the agent about the deduction and why,13500.0,12000.0,1500.0,WhatsApp
+RF-1696,Peak Journeys,"Closed in Support, missing in Finance",Faizan K.,27,Send to Finance with booking details; reopen ticket until Finance confirms payout,41100.0,,,WhatsApp
+RF-1035,Nomad Travel,Paid less than Support promised (deduction),Faizan K.,27,Tell the agent about the deduction and why,12300.0,10800.0,1500.0,Phone
+RF-1188,TripHub,Paid less than Support promised (deduction),Faizan K.,26,Tell the agent about the deduction and why,10400.0,8900.0,1500.0,Unknown
+RF-1413,Skyline Travels,"Closed in Support, missing in Finance",Rakesh N.,26,Send to Finance with booking details; reopen ticket until Finance confirms payout,34600.0,,,Phone
+RF-1252,TripHub,Paid less than Support promised (deduction),Priya S.,26,Tell the agent about the deduction and why,21100.0,19400.0,1700.0,Phone
+RF-1749,Anand Travels,Paid less than Support promised (deduction),Sneha R.,26,Tell the agent about the deduction and why,26300.0,24200.0,2100.0,Email
+RF-1778,Skyline Travels,Pending in Finance,Finance,26,Get manager sign-off and release payout,28700.0,,2300.0,Phone
+RF-1122,Wander Agency,Pending in Finance,Finance,25,Get manager sign-off and release payout,32200.0,,2600.0,Unknown
+RF-1856,Yatri Junction,Pending in Finance,Finance,25,Get manager sign-off and release payout,28800.0,,2300.0,Portal
+RF-1842,SafarNama Travel,In Finance only,Support,25,Create the missing Support ticket and confirm the request with the agent,,17400.0,1500.0,
+RF-1835,Global Wings,Paid less than Support promised (deduction),Priya S.,25,Tell the agent about the deduction and why,37900.0,34900.0,3000.0,Phone
+RF-1526,BlueJet Tours,Paid less than Support promised (deduction),Aditi M.,25,Tell the agent about the deduction and why,26600.0,24500.0,2100.0,Portal
+RF-1466,Coral Voyages,Paid less than Support promised (deduction),Priya S.,25,Tell the agent about the deduction and why,25500.0,23500.0,2000.0,Portal
+RF-1148,Skyline Travels,Logged twice in Finance: check for double payout,Finance,24,Check bank statement for a second payout,16500.0,16500.0,0.0,Portal
+RF-1234,Skyline Travels,"Closed in Support, missing in Finance",Priya S.,24,Send to Finance with booking details; reopen ticket until Finance confirms payout,4000.0,,,Phone
+RF-1564,TripHub,"Closed in Support, missing in Finance",Aditi M.,24,Send to Finance with booking details; reopen ticket until Finance confirms payout,19700.0,,,WhatsApp
+RF-1537,Sunrise Trips,Pending in Finance,Finance,24,Get manager sign-off and release payout,32600.0,,0.0,Portal
+RF-1582,Sunrise Trips,In Finance only,Support,23,Create the missing Support ticket and confirm the request with the agent,,5800.0,1500.0,
+RF-1260,Nomad Travel,"Closed in Support, missing in Finance",Vikram T.,23,Send to Finance with booking details; reopen ticket until Finance confirms payout,9500.0,,,Email
+RF-1067,GoFly Holidays,"Closed in Support, missing in Finance",Rakesh N.,22,Send to Finance with booking details; reopen ticket until Finance confirms payout,16900.0,,,Portal
+RF-1733,BlueJet Tours,"Closed in Support, missing in Finance",Vikram T.,22,Send to Finance with booking details; reopen ticket until Finance confirms payout,11900.0,,,Portal
+RF-1507,Skyline Travels,"Closed in Support, missing in Finance",Vikram T.,22,Send to Finance with booking details; reopen ticket until Finance confirms payout,18000.0,,,Portal
+RF-1812,ZipTrip,Pending in Finance,Finance,21,Get manager sign-off and release payout,35900.0,,0.0,Email
+RF-1511,Anand Travels,Pending in Finance,Finance,21,Get manager sign-off and release payout,23300.0,,1900.0,Email
+RF-1385,Coral Voyages,"Closed in Support, missing in Finance",Faizan K.,21,Send to Finance with booking details; reopen ticket until Finance confirms payout,9600.0,,,WhatsApp
+RF-1226,Orbit Travels,Paid less than Support promised (deduction),Aditi M.,21,Tell the agent about the deduction and why,17300.0,15800.0,1500.0,Phone
+RF-1305,TripHub,Paid less than Support promised (deduction),Sneha R.,21,Tell the agent about the deduction and why,28900.0,26600.0,2300.0,Email
+RF-1001,Skyline Travels,Pending in Finance,Finance,21,Get manager sign-off and release payout,29100.0,,2300.0,Portal
+RF-1201,Anand Travels,"Closed in Support, missing in Finance",Rakesh N.,20,Send to Finance with booking details; reopen ticket until Finance confirms payout,4500.0,,,Email
+RF-1063,Voyage Desk,Pending in Finance,Finance,19,Get manager sign-off and release payout,25700.0,,2100.0,Portal
+RF-1123,BlueJet Tours,Pending in Finance,Finance,19,Get manager sign-off and release payout,25400.0,,0.0,Email
+RF-1390,Metro Yatra,Paid less than Support promised (deduction),Rakesh N.,18,Tell the agent about the deduction and why,22300.0,20500.0,1800.0,Portal
+RF-1298,GoFly Holidays,Paid less than Support promised (deduction),Sneha R.,18,Tell the agent about the deduction and why,15400.0,13900.0,1500.0,Portal
+RF-1673,Nomad Travel,"Closed in Support, missing in Finance",Rakesh N.,18,Send to Finance with booking details; reopen ticket until Finance confirms payout,,,,Portal
+RF-1809,Metro Yatra,"Closed in Support, missing in Finance",Vikram T.,18,Send to Finance with booking details; reopen ticket until Finance confirms payout,5200.0,,,Email
+RF-1285,BlueJet Tours,"Closed in Support, missing in Finance",Rakesh N.,18,Send to Finance with booking details; reopen ticket until Finance confirms payout,12100.0,,,Portal
+RF-1259,BlueJet Tours,Pending in Finance,Finance,18,Get manager sign-off and release payout,26200.0,,2100.0,WhatsApp
+RF-1490,Metro Yatra,"Closed in Support, missing in Finance",Aditi M.,17,Send to Finance with booking details; reopen ticket until Finance confirms payout,7700.0,,,Phone
+RF-1668,Peak Journeys,"Closed in Support, missing in Finance",Rakesh N.,17,Send to Finance with booking details; reopen ticket until Finance confirms payout,5000.0,,,Portal
+RF-1745,BlueJet Tours,Pending in Finance,Finance,17,Get manager sign-off and release payout,29100.0,,2300.0,Portal
+RF-1757,Wander Agency,Pending in Finance,Finance,17,Get manager sign-off and release payout,22900.0,,0.0,Phone
+RF-1145,Peak Journeys,Pending in Finance,Finance,17,Get manager sign-off and release payout,21300.0,,1700.0,Phone
+RF-1482,TripHub,Pending in Finance,Finance,17,Get manager sign-off and release payout,21000.0,,1700.0,WhatsApp
+RF-1313,SafarNama Travel,Paid less than Support promised (deduction),Faizan K.,16,Tell the agent about the deduction and why,18700.0,17200.0,1500.0,Phone
+RF-1401,Metro Yatra,Pending in Finance,Finance,16,Get manager sign-off and release payout,25000.0,,2000.0,Portal
+RF-1627,Wander Agency,"Closed in Support, missing in Finance",Priya S.,15,Send to Finance with booking details; reopen ticket until Finance confirms payout,8400.0,,,Portal
+RF-1549,Peak Journeys,Paid less than Support promised (deduction),Rakesh N.,15,Tell the agent about the deduction and why,15400.0,13900.0,1500.0,Portal
+RF-1446,Orbit Travels,Paid less than Support promised (deduction),Rakesh N.,14,Tell the agent about the deduction and why,12900.0,11400.0,1500.0,Portal
+RF-1134,GoFly Holidays,"Closed in Support, missing in Finance",Priya S.,14,Send to Finance with booking details; reopen ticket until Finance confirms payout,8300.0,,,WhatsApp
+RF-1701,BlueJet Tours,In Finance only,Support,13,Create the missing Support ticket and confirm the request with the agent,,17400.0,1500.0,
+RF-1782,TripHub,Pending in Finance,Finance,13,Get manager sign-off and release payout,34300.0,,0.0,WhatsApp
+RF-1770,GoFly Holidays,"Closed in Support, missing in Finance",Rakesh N.,12,Send to Finance with booking details; reopen ticket until Finance confirms payout,33100.0,,,Portal
+RF-1794,Sunrise Trips,"Closed in Support, missing in Finance",Vikram T.,12,Send to Finance with booking details; reopen ticket until Finance confirms payout,8700.0,,,Portal
+RF-1713,TripHub,Pending in Finance,Finance,12,Get manager sign-off and release payout,39900.0,,3200.0,Portal
+RF-1525,GoFly Holidays,Paid less than Support promised (deduction),Sneha R.,11,Tell the agent about the deduction and why,12900.0,11400.0,1500.0,Portal
+RF-1844,TripHub,In Finance only,Support,10,Create the missing Support ticket and confirm the request with the agent,,10500.0,0.0,
+RF-1315,Kaveri Tours,Pending in Finance,Finance,10,Get manager sign-off and release payout,24600.0,,2000.0,WhatsApp
+RF-1458,Skyline Travels,"Closed in Support, missing in Finance",Sneha R.,10,Send to Finance with booking details; reopen ticket until Finance confirms payout,22400.0,,,WhatsApp
+RF-1570,Skyline Travels,"Closed in Support, missing in Finance",Rakesh N.,10,Send to Finance with booking details; reopen ticket until Finance confirms payout,23600.0,,,WhatsApp
+RF-1152,BlueJet Tours,Paid less than Support promised (deduction),Vikram T.,9,Tell the agent about the deduction and why,25000.0,23000.0,2000.0,Email
+RF-1388,SafarNama Travel,In Finance only,Support,9,Create the missing Support ticket and confirm the request with the agent,,8900.0,0.0,
+RF-1444,GoFly Holidays,"Closed in Support, missing in Finance",Rakesh N.,9,Send to Finance with booking details; reopen ticket until Finance confirms payout,13600.0,,,WhatsApp
+RF-1299,Metro Yatra,Paid less than Support promised (deduction),Priya S.,9,Tell the agent about the deduction and why,16100.0,14600.0,1500.0,Portal
+RF-1747,GoFly Holidays,In Finance only,Support,8,Create the missing Support ticket and confirm the request with the agent,,5000.0,0.0,
+RF-1854,DeccanFly,"Closed in Support, missing in Finance",Priya S.,6,Send to Finance with booking details; reopen ticket until Finance confirms payout,20600.0,,,Portal
+RF-1477,Orbit Travels,"Closed in Support, missing in Finance",Vikram T.,6,Send to Finance with booking details; reopen ticket until Finance confirms payout,20800.0,,,Portal
+RF-1430,Himalaya Holidays,Pending in Finance,Finance,6,Get manager sign-off and release payout,6100.0,,0.0,Portal
+RF-1169,Peak Journeys,Pending in Finance,Finance,6,Get manager sign-off and release payout,24000.0,,1900.0,Portal
+RF-1560,TripHub,"Closed in Support, missing in Finance",Aditi M.,6,Send to Finance with booking details; reopen ticket until Finance confirms payout,15000.0,,,Portal
+RF-1381,Nomad Travel,Pending in Finance,Finance,5,Get manager sign-off and release payout,6200.0,,0.0,Portal
+RF-1235,TripHub,Pending in Finance,Finance,5,Get manager sign-off and release payout,8600.0,,0.0,Portal
+RF-1479,SafarNama Travel,"Closed in Support, missing in Finance",Faizan K.,5,Send to Finance with booking details; reopen ticket until Finance confirms payout,6500.0,,,WhatsApp
+RF-1708,TripHub,Pending in Finance,Finance,5,Get manager sign-off and release payout,6200.0,,0.0,Portal
+RF-1727,Anand Travels,"Closed in Support, missing in Finance",Rakesh N.,5,Send to Finance with booking details; reopen ticket until Finance confirms payout,30000.0,,,Portal
+RF-1832,Nomad Travel,Paid less than Support promised (deduction),Rakesh N.,5,Tell the agent about the deduction and why,17200.0,15700.0,1500.0,WhatsApp
+RF-1306,Skyline Travels,Pending in Finance,Finance,4,Get manager sign-off and release payout,8600.0,,0.0,Portal
+RF-1030,Voyage Desk,Pending in Finance,Finance,3,Get manager sign-off and release payout,5300.0,,0.0,Email
+RF-1369,Yatri Junction,Pending in Finance,Finance,3,Get manager sign-off and release payout,8700.0,,1500.0,Portal
+RF-1573,Nomad Travel,In Finance only,Support,3,Create the missing Support ticket and confirm the request with the agent,,0.0,0.0,
+RF-1714,Yatri Junction,Pending in Finance,Finance,3,Get manager sign-off and release payout,22100.0,,1800.0,Email
+RF-1219,Kaveri Tours,In Finance only,Support,3,Create the missing Support ticket and confirm the request with the agent,,,0.0,
+RF-1180,Kaveri Tours,Pending in Finance,Finance,3,Get manager sign-off and release payout,11800.0,,0.0,Portal
+RF-1107,Peak Journeys,Pending in Finance,Finance,3,Get manager sign-off and release payout,31700.0,,2500.0,WhatsApp
+RF-1612,Global Wings,Pending in Finance,Finance,3,Get manager sign-off and release payout,6800.0,,0.0,Phone
+RF-1722,Orbit Travels,Pending in Finance,Finance,3,Get manager sign-off and release payout,25800.0,,0.0,Portal
+RF-1613,Kaveri Tours,Pending in Finance,Finance,2,Get manager sign-off and release payout,7100.0,,0.0,Portal
+RF-1113,Nomad Travel,Pending in Finance,Finance,2,Get manager sign-off and release payout,38800.0,,0.0,Portal
+RF-1010,BlueJet Tours,Pending in Finance,Finance,2,Get manager sign-off and release payout,10000.0,,0.0,WhatsApp
+RF-1663,Metro Yatra,Pending in Finance,Finance,2,Get manager sign-off and release payout,12800.0,,0.0,Portal
+RF-1106,BlueJet Tours,Paid less than Support promised (deduction),Sneha R.,2,Tell the agent about the deduction and why,19000.0,17500.0,1500.0,Email
+RF-1548,Metro Yatra,Pending in Finance,Finance,2,Get manager sign-off and release payout,6700.0,,0.0,WhatsApp
+RF-1187,TripHub,Pending in Finance,Finance,2,Get manager sign-off and release payout,6300.0,,0.0,Phone
+RF-1150,Orbit Travels,Pending in Finance,Finance,1,Get manager sign-off and release payout,7900.0,,0.0,Portal
+RF-1542,TripHub,Pending in Finance,Finance,1,Get manager sign-off and release payout,4500.0,,0.0,Portal
+RF-1791,TripHub,Pending in Finance,Finance,1,Get manager sign-off and release payout,19600.0,,1600.0,Portal
+RF-1441,Voyage Desk,Pending in Finance,Finance,1,Get manager sign-off and release payout,18600.0,,1500.0,WhatsApp
+RF-1292,Voyage Desk,Pending in Finance,Finance,1,Get manager sign-off and release payout,23100.0,,1800.0,Portal
+RF-1129,Global Wings,Pending in Finance,Finance,0,Get manager sign-off and release payout,17600.0,,1500.0,Phone
+RF-1074,BlueJet Tours,Pending in Finance,Finance,0,Get manager sign-off and release payout,5900.0,,0.0,WhatsApp
+RF-1280,ZipTrip,Pending in Finance,Finance,0,Get manager sign-off and release payout,9200.0,,0.0,Email
+RF-1275,Nomad Travel,Pending in Finance,Finance,0,Get manager sign-off and release payout,25100.0,,0.0,Email
+RF-1281,Voyage Desk,Pending in Finance,Finance,0,Get manager sign-off and release payout,13900.0,,0.0,Portal
+RF-1222,TripHub,Pending in Finance,Finance,0,Get manager sign-off and release payout,9400.0,,0.0,Email
+RF-1043,Pinnacle Getaways,"Closed in Support, missing in Finance",Rakesh N.,0,Send to Finance with booking details; reopen ticket until Finance confirms payout,14000.0,,,Portal
+RF-1463,DeccanFly,Pending in Finance,Finance,0,Get manager sign-off and release payout,9000.0,,0.0,Portal
+RF-1516,GoFly Holidays,"Closed in Support, missing in Finance",Priya S.,0,Send to Finance with booking details; reopen ticket until Finance confirms payout,27100.0,,,Portal
+RF-1461,Skyline Travels,Pending in Finance,Finance,0,Get manager sign-off and release payout,13200.0,,0.0,Portal
+RF-1552,BlueJet Tours,In Finance only,Support,0,Create the missing Support ticket and confirm the request with the agent,,,1500.0,
+RF-1550,SafarNama Travel,Pending in Finance,Finance,0,Get manager sign-off and release payout,7700.0,,0.0,Portal
+RF-1591,Lotus Travel Co,Pending in Finance,Finance,0,Get manager sign-off and release payout,6400.0,,0.0,Portal
+RF-1655,Yatri Junction,Pending in Finance,Finance,0,Get manager sign-off and release payout,8200.0,,1500.0,WhatsApp
+RF-1700,GoFly Holidays,In Finance only,Support,0,Create the missing Support ticket and confirm the request with the agent,,,2300.0,
+RF-1736,Pinnacle Getaways,Pending in Finance,Finance,0,Get manager sign-off and release payout,9800.0,,1500.0,Email
+RF-1764,Wander Agency,"Closed in Support, missing in Finance",Aditi M.,0,Send to Finance with booking details; reopen ticket until Finance confirms payout,13400.0,,,Phone
+RF-1819,Peak Journeys,Pending in Finance,Finance,0,Get manager sign-off and release payout,12200.0,,1500.0,Email

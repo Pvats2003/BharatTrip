@@ -1,0 +1,29 @@
+sheet,rule,rows_affected
+Support,Rows read,755
+Support,Removed exact duplicate rows (row pasted twice),12
+Support,"Normalised ticket ID to RF-#### (spaces, case, missing hyphen, trailing space)",29
+Support,"Parsed text date in 'request_date' (dd-mm-yyyy or dd/mm/yy, day-first)",102
+Support,"Parsed text date in 's_last_updated' (dd-mm-yyyy or dd/mm/yy, day-first)",73
+Support,Trimmed whitespace from Status,12
+Support,"Standardised agent name (case, extra/leading/trailing spaces)",42
+Support,Blank 'Handled By' set to 'Unassigned',15
+Support,Blank 'Channel' set to 'Unknown',19
+Support,Blank refund amount left blank (not guessed),16
+Support,Removed rows that became exact duplicates after normalisation,0
+Support,"Same ticket ID logged twice with different amount/status: kept one (most advanced status, then latest update), flagged as conflict",10
+Support,Rows after cleaning (one per refund ID),733
+Finance,Rows read,689
+Finance,Removed exact duplicate rows,0
+Finance,Stripped '(revised)' suffix from Ref No (kept a flag),9
+Finance,Normalised Ref No to RF-#### (all variants incl. revised),29
+Finance,Parsed text date in 'f_received' (day-first),88
+Finance,Parsed text date in 'f_processed' (day-first),82
+Finance,Trimmed whitespace from Payout Status,0
+Finance,"Standardised agent name (case, extra/leading/trailing spaces)",53
+Finance,Blank Deduction treated as 0 for maths (blank != confirmed zero; kept a flag),186
+Finance,"Same Ref No entered twice, identical apart from Remarks ('re-entry'/'duplicate check pending'): kept one, flagged as possible double payout",9
+Finance,Rows after cleaning (one per refund ID),680
+Escalations,Rows read,155
+Escalations,Related ref normalised to RF-####,0
+Escalations,"No usable ref ('no ref', 'not known', '-', blank) -> left blank",19
+Escalations,Parsed text dates in Raised On / Resolved On (day-first),15
