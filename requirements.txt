@@ -1,3 +1,6 @@
 pandas>=2.0
 openpyxl
 tabulate
+streamlit>=1.40
+anthropic>=2.6
+pydantic>=2

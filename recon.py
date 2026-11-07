@@ -279,6 +279,11 @@ def problem_cases(m: pd.DataFrame, today: pd.Timestamp = SNAPSHOT) -> pd.DataFra
             issue, owner = st, r.handler
             action = "Send to Finance with booking details; reopen ticket until Finance confirms payout"
             since = r.s_last_updated
+        elif st == "Pending in Finance" and r.s_status == "Closed":
+            issue, owner = "Closed in Support, not yet paid (Finance pending)", "Finance"
+            action = ("Finance: release payout. Support: correct the 'refund done' message "
+                      "already sent to the agent")
+            since = r.s_last_updated
         elif st == "Pending in Finance":
             issue, owner = st, "Finance"
             action = ("Get manager sign-off and release payout" if pd.isna(r.approved_by)
@@ -318,8 +323,89 @@ def problem_cases(m: pd.DataFrame, today: pd.Timestamp = SNAPSHOT) -> pd.DataFra
     return out
 
 
+def closed_not_paid(m: pd.DataFrame, today: pd.Timestamp = SNAPSHOT, days: int = 7) -> pd.DataFrame:
+    """Metric 1: Support says Closed, Finance has not paid (missing OR still pending),
+    and Support closed it more than `days` days ago."""
+    c = m[(m.s_status == "Closed")
+          & m.true_state.isin(["Closed in Support, missing in Finance", "Pending in Finance"])].copy()
+    c["days_since_closed"] = (today - c.s_last_updated).dt.days
+    return c[c.days_since_closed > days]
+
+
 def load_and_reconcile(support_raw: pd.DataFrame, finance_raw: pd.DataFrame):
     log = CleanLog()
     sup = clean_support(support_raw, log)
     fin = clean_finance(finance_raw, log)
     return reconcile(sup, fin), log.df(), sup, fin
+
+
+# --------------------------------------------------------------------------
+# Facts for an agent update (plain code; the AI only turns these into words)
+# --------------------------------------------------------------------------
+_HOLD_REASON = {
+    "supplier not confirmed": "waiting for the airline/supplier to confirm the refund",
+    "awaiting approval": "waiting for final approval",
+    "pending manager sign-off": "waiting for final approval",
+    "in queue": "in the payment queue",
+    "hold - amount mismatch": "the refund amount is being re-checked",
+}
+_DECLINE_REASON = {
+    "past cancellation window": "the cancellation was made after the refund window closed",
+    "outside cancellation window": "the cancellation was made after the refund window closed",
+    "non-refundable fare": "the fare booked was non-refundable",
+    "no-show, not eligible": "the booking was a no-show, which is not refundable",
+    "outside policy": "the request falls outside the refund policy",
+    "rejected by policy": "the request falls outside the refund policy",
+    "closed as per policy": "the request falls outside the refund policy",
+}
+
+
+def _rs(x):
+    return f"Rs {x:,.0f}" if pd.notna(x) else "not recorded"
+
+
+def _d(x):
+    return x.strftime("%d %b %Y") if pd.notna(x) else "not recorded"
+
+
+def refund_facts(r: pd.Series) -> dict:
+    st = r.true_state
+    f = {
+        "Refund reference": r.refund_id,
+        "Agent": r.agent if pd.notna(r.agent) else r.f_agent,
+        "Route": r.route if pd.notna(r.route) else r.f_route,
+        "Request date": _d(r.request_date if pd.notna(r.request_date) else r.f_received),
+        "Amount requested": _rs(r.s_amount),
+    }
+    if st == "Paid" or (st == "In Finance only" and r.f_status == "Refund Done"):
+        f["Status"] = "Paid"
+        f["Paid on"] = _d(r.f_processed)
+        f["Amount paid"] = _rs(r.f_paid)
+        if r.f_deduction and r.f_deduction > 0:
+            f["Deduction"] = _rs(r.f_deduction)
+            f["Deduction reason"] = "not recorded in our system (team to confirm)"
+            f["Check"] = f"{_rs(r.s_amount)} requested - {_rs(r.f_deduction)} deduction = {_rs(r.f_paid)} paid" \
+                if pd.notna(r.s_amount) and r.s_amount - r.f_deduction == r.f_paid else "amounts reconcile in Finance only"
+    elif st == "Pending in Finance" or (st == "In Finance only" and r.f_status == "Pending Payout"):
+        f["Status"] = "Not paid yet - with the payments team"
+        f["Why it is waiting"] = _HOLD_REASON.get(str(r.f_remarks).strip().lower(), "being processed")
+        f["With payments team since"] = _d(r.f_received)
+        if r.f_deduction and r.f_deduction > 0:
+            f["Expected deduction"] = _rs(r.f_deduction)
+            f["Expected payout"] = _rs(r.s_amount - r.f_deduction) if pd.notna(r.s_amount) else "to be confirmed"
+        if r.s_status == "Closed":
+            f["Correction"] = "An earlier message may have said this refund was done. It is not paid yet; apologise for the confusion."
+    elif st == "Closed in Support, missing in Finance":
+        f["Status"] = "Not paid yet - the request was closed on our side but never reached the payments team"
+        f["Next step"] = "We are sending it to the payments team now and will confirm once it is paid"
+        f["Correction"] = "An earlier message said this refund was done. That was wrong; apologise."
+    elif st == "Declined" or (st == "In Finance only" and r.f_status == "Declined"):
+        reason_src = str(r.f_remarks if pd.notna(r.f_remarks) else r.s_notes).strip().lower()
+        alt = str(r.s_notes).strip().lower()
+        f["Status"] = "Not eligible for a refund"
+        f["Reason"] = _DECLINE_REASON.get(reason_src, _DECLINE_REASON.get(alt,
+                      "reason not recorded in our system (team to confirm the exact policy)"))
+    else:  # Open in Support
+        f["Status"] = "Under review by our Support team, not yet sent for payment"
+        f["Next step"] = "Support to confirm eligibility and send for payment"
+    return f
