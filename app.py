@@ -60,7 +60,7 @@ sla = st.sidebar.number_input("Closed-but-unpaid alert after (days)", 1, 60, 7)
 st.sidebar.markdown("---")
 st.sidebar.write("AI features:", "✅ ready" if AI_READY else "⚠️ set `GEMINI_API_KEY`")
 import ai as _ai  # noqa: E402
-st.sidebar.caption(f"Build {_ai.APP_VERSION} · model {_ai.MODEL}")
+st.sidebar.caption(f"Build {_ai.APP_VERSION} · model: {_ai.MODEL_OVERRIDE or _ai._RESOLVED.get('model', 'auto (picked on first AI call)')}")
 st.sidebar.write(f"Approved items this session: **{len(st.session_state.approved)}**")
 if st.session_state.approved:
     st.sidebar.download_button("Download approval log (CSV)",

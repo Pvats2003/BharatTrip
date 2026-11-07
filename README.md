@@ -25,7 +25,7 @@ Without a key, tab ① (the reconciliation and problem list) works fully, and th
 
 **Design rule:** matching and money are never done by the AI. Every AI output is shown next to the exact source it was given, and nothing counts as sent until a human clicks Approve (approvals download as a CSV log). The prototype never sends anything itself.
 
-Model: Gemini Flash (`gemini-flash-latest` by default; set `GEMINI_MODEL` to change it). Free-tier note: Google may use free-tier prompts to improve its models, which is fine here because the data is synthetic. Do not use real customer data on the free tier.
+Model: Gemini Flash. The app asks the API which models the key can use and picks the newest stable Flash; set `GEMINI_MODEL` to override. Free-tier note: Google may use free-tier prompts to improve its models, which is fine here because the data is synthetic. Do not use real customer data on the free tier.
 
 ## Files
 - `recon.py`: cleaning, reconciliation, true state, problem cases, metric 1, agent-update facts
