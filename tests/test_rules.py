@@ -57,3 +57,36 @@ def test_number_guardrail(m):
     facts = recon.refund_facts(m[m.refund_id == "RF-1197"].iloc[0])
     assert ai.numbers_not_in_facts("Requested Rs 17,700, deduction Rs 1,500, paid Rs 16,200.", facts) == []
     assert ai.numbers_not_in_facts("We paid Rs 17,000.", facts) == ["17,000"]
+
+
+def test_gemini_retry_then_fallback(monkeypatch):
+    """Fake Gemini: newest model always busy (503) -> retried, then falls back to the next model."""
+    from google.genai import errors as ge
+    calls = []
+
+    class FakeModels:
+        def generate_content(self, model, contents, config):
+            calls.append(model)
+            if model == "gemini-9.0-flash":
+                raise ge.ServerError(503, {"error": {"code": 503, "message": "busy", "status": "UNAVAILABLE"}})
+            return "ok"
+
+    class FakeClient:
+        models = FakeModels()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(ai, "_client", lambda: FakeClient())
+    monkeypatch.setattr(ai, "WAITS", (0, 0))
+    monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
+    ai._RESOLVED.clear()
+    ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-8.5-flash"], available=[])
+    assert ai._generate("x", None) == "ok"
+    assert calls == ["gemini-9.0-flash"] * 3 + ["gemini-8.5-flash"]
+    assert ai._RESOLVED["model"] == "gemini-8.5-flash"
+
+
+def test_rank_flash_models():
+    names = ["models/gemini-2.5-flash", "models/gemini-2.5-flash-lite", "models/gemini-3.8-flash",
+             "models/gemini-3.8-flash-preview-09", "models/gemini-3.8-pro", "models/gemini-3.8-flash-image"]
+    assert ai.rank_flash_models(names) == ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"]

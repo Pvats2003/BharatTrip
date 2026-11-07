@@ -19,43 +19,75 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 import re as _re
+import time
+
+from google.genai import errors as genai_errors
 
 MODEL_OVERRIDE = os.environ.get("GEMINI_MODEL")  # optional; otherwise picked automatically
-_RESOLVED: dict = {}
-_SKIP = ("lite", "preview", "exp", "tts", "image", "live", "audio", "thinking", "embedding", "8b")
+_RESOLVED: dict = {}   # remembers the model list and which model last answered
+_SKIP = ("preview", "exp", "tts", "image", "live", "audio", "thinking", "embedding", "8b")
+RETRY_CODES = (429, 500, 503, 504)   # busy / rate-limited / temporary server errors
+WAITS = (2, 5)                       # seconds between attempts on the same model
+
+
+def rank_flash_models(names: list[str]) -> list[str]:
+    """Plain code: stable Flash models newest first, then Flash-Lite models newest first."""
+    flash, lite = [], []
+    for n in names:
+        n = n.split("/")[-1]
+        m = _re.fullmatch(r"gemini-(\d+(?:\.\d+)?)-flash(-lite)?(?:-(\d+))?", n)
+        if not m or any(w in n for w in _SKIP):
+            continue
+        (lite if m.group(2) else flash).append(((float(m.group(1)), int(m.group(3) or 0)), n))
+    return [n for _, n in sorted(flash, reverse=True)] + [n for _, n in sorted(lite, reverse=True)]
 
 
 def pick_flash_model(names: list[str]) -> str | None:
-    """Plain code: newest stable 'gemini-X.Y-flash' model from the list the API returns."""
-    best, best_v = None, (-1.0,)
-    for n in names:
-        n = n.split("/")[-1]
-        m = _re.fullmatch(r"gemini-(\d+(?:\.\d+)?)-flash(?:-(\d+))?", n)
-        if not m or any(w in n for w in _SKIP):
-            continue
-        v = (float(m.group(1)), int(m.group(2) or 0))
-        if v > best_v:
-            best, best_v = n, v
-    return best
+    r = [n for n in rank_flash_models(names) if "lite" not in n]
+    return r[0] if r else None
 
 
-def model_name() -> str:
-    """GEMINI_MODEL if set, else ask the API which models this key can use and pick the newest Flash."""
-    if MODEL_OVERRIDE:
-        return MODEL_OVERRIDE
-    if "model" not in _RESOLVED:
+def model_candidates() -> list[str]:
+    """GEMINI_MODEL first if set, then every usable Flash model this key can see (asked once)."""
+    if "candidates" not in _RESOLVED:
         with _client() as client:
             names = [mdl.name for mdl in client.models.list()
                      if not mdl.supported_actions or "generateContent" in mdl.supported_actions]
-        chosen = pick_flash_model(names)
-        if not chosen:
-            raise RuntimeError("No Gemini Flash model available to this key. Set GEMINI_MODEL in Secrets. "
-                               f"Available: {', '.join(n.split('/')[-1] for n in names[:15])}")
-        _RESOLVED["model"] = chosen
-    return _RESOLVED["model"]
+        _RESOLVED["candidates"] = rank_flash_models(names)
+        _RESOLVED["available"] = [n.split("/")[-1] for n in names]
+    cands = ([MODEL_OVERRIDE] if MODEL_OVERRIDE else []) + \
+            [c for c in _RESOLVED["candidates"] if c != MODEL_OVERRIDE]
+    if not cands:
+        raise RuntimeError("No Gemini Flash model available to this key. Set GEMINI_MODEL in Secrets. "
+                           f"Available: {', '.join(_RESOLVED['available'][:15])}")
+    return cands[:4]
 
 
-APP_VERSION = "v4 (Gemini, auto model)"
+def _generate(contents: str, config: types.GenerateContentConfig):
+    """Call Gemini with retries on busy/rate-limit errors, falling back to the next Flash model."""
+    last = None
+    for model in model_candidates():
+        for attempt in range(len(WAITS) + 1):
+            try:
+                with _client() as client:
+                    resp = client.models.generate_content(model=model, contents=contents, config=config)
+                _RESOLVED["model"] = model
+                return resp
+            except genai_errors.APIError as e:
+                last = e
+                if e.code == 404:                       # model not usable with this key: try the next one
+                    break
+                if e.code in RETRY_CODES and attempt < len(WAITS):
+                    time.sleep(WAITS[attempt])
+                    continue
+                if e.code in RETRY_CODES:               # still busy after retries: next model
+                    break
+                raise                                   # e.g. invalid key / bad request: stop
+    raise RuntimeError(f"Gemini is busy or unavailable on all Flash models right now; please retry in a minute. "
+                       f"Last error: {last}")
+
+
+APP_VERSION = "v5 (Gemini, auto model + retry)"
 
 
 def _client() -> genai.Client:
@@ -99,18 +131,12 @@ For every field you fill, add an evidence item quoting the exact words you used.
 def extract_intake(message: str, channel: str, sender: str, received_on: str) -> tuple[IntakeFields, str]:
     """Returns the parsed fields and the exact text that was sent to the model (the 'source')."""
     source = f"Channel: {channel}\nFrom: {sender}\nReceived: {received_on}\n\nMessage:\n{message}"
-    model = model_name()
-    with _client() as client:
-        resp = client.models.generate_content(
-            model=model,
-            contents=source,
-            config=types.GenerateContentConfig(
-                system_instruction=INTAKE_SYSTEM,
-                response_mime_type="application/json",
-                response_schema=IntakeFields,   # Gemini must return JSON matching this schema
-                temperature=0,
-            ),
-        )
+    resp = _generate(source, types.GenerateContentConfig(
+            system_instruction=INTAKE_SYSTEM,
+            response_mime_type="application/json",
+            response_schema=IntakeFields,   # Gemini must return JSON matching this schema
+            temperature=0,
+        ))
     parsed = resp.parsed if isinstance(resp.parsed, IntakeFields) else None
     if parsed is None:
         if not resp.text:
@@ -133,13 +159,7 @@ Rules:
 
 def draft_agent_update(facts: dict) -> tuple[str, str]:
     source = "Facts (computed by code from both trackers):\n" + "\n".join(f"- {k}: {v}" for k, v in facts.items())
-    model = model_name()
-    with _client() as client:
-        resp = client.models.generate_content(
-            model=model,
-            contents=source,
-            config=types.GenerateContentConfig(system_instruction=UPDATE_SYSTEM, temperature=0.3),
-        )
+    resp = _generate(source, types.GenerateContentConfig(system_instruction=UPDATE_SYSTEM, temperature=0.3))
     if not resp.text:
         raise RuntimeError("Gemini returned no text (possibly blocked by a safety filter).")
     return resp.text.strip(), source
