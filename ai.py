@@ -21,16 +21,14 @@ from pydantic import BaseModel, Field
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
 
-_CLIENTS: dict = {}
+APP_VERSION = "v3 (Gemini, per-call client)"
 
 
 def _client() -> genai.Client:
-    """One long-lived client per API key. (A throwaway client gets garbage-collected mid-call,
-    which closes its connection: 'Cannot send a request, as the client has been closed'.)"""
+    """A fresh client per call, always used inside `with`, so it stays open for the whole request.
+    (Using a throwaway client inline let Python close it mid-call: 'client has been closed'.)"""
     key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    if key not in _CLIENTS:
-        _CLIENTS[key] = genai.Client(api_key=key)
-    return _CLIENTS[key]
+    return genai.Client(api_key=key)
 
 
 def api_key_set() -> bool:
@@ -67,16 +65,17 @@ For every field you fill, add an evidence item quoting the exact words you used.
 def extract_intake(message: str, channel: str, sender: str, received_on: str) -> tuple[IntakeFields, str]:
     """Returns the parsed fields and the exact text that was sent to the model (the 'source')."""
     source = f"Channel: {channel}\nFrom: {sender}\nReceived: {received_on}\n\nMessage:\n{message}"
-    resp = _client().models.generate_content(
-        model=MODEL,
-        contents=source,
-        config=types.GenerateContentConfig(
-            system_instruction=INTAKE_SYSTEM,
-            response_mime_type="application/json",
-            response_schema=IntakeFields,   # Gemini must return JSON matching this schema
-            temperature=0,
-        ),
-    )
+    with _client() as client:
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=source,
+            config=types.GenerateContentConfig(
+                system_instruction=INTAKE_SYSTEM,
+                response_mime_type="application/json",
+                response_schema=IntakeFields,   # Gemini must return JSON matching this schema
+                temperature=0,
+            ),
+        )
     parsed = resp.parsed if isinstance(resp.parsed, IntakeFields) else None
     if parsed is None:
         if not resp.text:
@@ -99,11 +98,12 @@ Rules:
 
 def draft_agent_update(facts: dict) -> tuple[str, str]:
     source = "Facts (computed by code from both trackers):\n" + "\n".join(f"- {k}: {v}" for k, v in facts.items())
-    resp = _client().models.generate_content(
-        model=MODEL,
-        contents=source,
-        config=types.GenerateContentConfig(system_instruction=UPDATE_SYSTEM, temperature=0.3),
-    )
+    with _client() as client:
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=source,
+            config=types.GenerateContentConfig(system_instruction=UPDATE_SYSTEM, temperature=0.3),
+        )
     if not resp.text:
         raise RuntimeError("Gemini returned no text (possibly blocked by a safety filter).")
     return resp.text.strip(), source
