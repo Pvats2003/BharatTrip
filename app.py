@@ -7,6 +7,7 @@ The AI (ai.py) only reads messy text and writes messages, every AI output shows
 its source, and nothing counts as sent until a human clicks Approve.
 """
 import io
+import json
 import os
 from datetime import date, datetime
 
@@ -317,25 +318,29 @@ with tab3:
         st.markdown("**Source: facts the AI will be given**")
         st.table(pd.Series(facts, name="value"))
     with right:
-        if st.button("Draft message with AI", disabled=not AI_READY):
+        cache = st.session_state.setdefault("draft_cache", {})
+        ckey = (rid, json.dumps(facts, sort_keys=True, default=str))   # same refund + same facts = same draft
+        d = cache.get(ckey)
+        if st.button("Redraft with AI" if d else "Draft message with AI", disabled=not AI_READY):
             import ai
-            with st.spinner("Drafting…"):
-                try:
-                    text, source = ai.draft_agent_update(facts)
-                    st.session_state.update_draft = {"rid": rid, "text": text, "source": source,
-                                                     "flags": ai.numbers_not_in_facts(text, facts),
-                                                     "call": ai._RESOLVED.get("last_call", "")}
-                except Exception as e:
-                    st.error(f"AI call failed: {e}")
-        d = st.session_state.get("update_draft")
-        if d and d["rid"] == rid:
-            if d.get("call"):
-                st.caption(d["call"])
+            try:
+                st.caption("Writing…")
+                text = st.write_stream(ai.draft_agent_update_stream(facts))   # words appear as they are written
+                if isinstance(text, list):
+                    text = "".join(map(str, text))
+                cache[ckey] = {"text": text.strip(), "source": ai.update_source(facts),
+                               "flags": ai.numbers_not_in_facts(text, facts),
+                               "call": ai._RESOLVED.get("last_call", "")}
+                st.rerun()
+            except Exception as e:
+                st.error(f"AI call failed: {e}")
+        if d:
+            st.caption(("Saved draft (instant). Click *Redraft with AI* for a new version.  ·  " + d.get("call", "")).strip(" ·"))
             if d["flags"]:
                 st.error(f"⚠️ Numbers in the draft that are NOT in the facts: {', '.join(d['flags'])}. Edit before approving.")
             else:
                 st.success("Number check passed: every amount in the draft appears in the facts.")
-            edited = st.text_area("Draft (edit freely)", d["text"], height=220)
+            edited = st.text_area("Draft (edit freely)", d["text"], height=220, key=f"edit_{rid}_{hash(d['text'])}")
             if st.button("✅ Approve message"):
                 st.session_state.approved.append({
                     "approved_at": datetime.now().isoformat(timespec="seconds"), "type": "agent_update",

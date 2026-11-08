@@ -49,16 +49,20 @@ def pick_flash_model(names: list[str]) -> str | None:
     return r[0] if r else None
 
 
-def model_candidates() -> list[str]:
-    """Order: GEMINI_MODEL (if set), the model that last worked, then every usable Flash model
-    this key can see, newest first, Flash-Lite last. The model list is fetched once."""
+def model_candidates(task: str = "intake") -> list[str]:
+    """Order: GEMINI_MODEL (if set), the model that last worked for this task, then usable Flash models.
+    Intake (reading messy text): Flash first, Flash-Lite last. Drafting (short message): Flash-Lite first,
+    because it is faster and usually less busy. The model list is fetched once."""
     if "candidates" not in _RESOLVED:
         with _client() as client:
             names = [mdl.name for mdl in client.models.list()
                      if not mdl.supported_actions or "generateContent" in mdl.supported_actions]
         _RESOLVED["candidates"] = rank_flash_models(names)
         _RESOLVED["available"] = [n.split("/")[-1] for n in names]
-    order = [MODEL_OVERRIDE, _RESOLVED.get("model")] + _RESOLVED["candidates"]
+    ranked = _RESOLVED["candidates"]
+    if task == "draft":
+        ranked = [c for c in ranked if "lite" in c] + [c for c in ranked if "lite" not in c]
+    order = [MODEL_OVERRIDE, _RESOLVED.get(f"model_{task}")] + ranked
     cands = list(dict.fromkeys(m for m in order if m))
     if not cands:
         raise RuntimeError("No Gemini Flash model available to this key. Set GEMINI_MODEL in Secrets. "
@@ -66,32 +70,57 @@ def model_candidates() -> list[str]:
     return cands[:6]
 
 
-def _generate(contents: str, config: types.GenerateContentConfig):
-    """Call Gemini. 'Busy' (503) or a timeout -> move straight to the next model.
-    Rate limit (429) -> wait briefly and retry the same model. Anything else (bad key, bad request) -> stop."""
+def _with_min_thinking(config: types.GenerateContentConfig, model: str):
+    """Turn the model's private 'thinking' down to the minimum: these tasks need no reasoning.
+    Gemini 3+ takes a thinking level; Gemini 2.5 takes a token budget (0 = off)."""
+    if config is None or model in _RESOLVED.get("no_thinking_cfg", set()):
+        return config
+    m = _re.match(r"gemini-(\d+(?:\.\d+)?)", model)
+    if not m:
+        return config
+    v = float(m.group(1))
+    if v >= 3:
+        tc = types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL)
+    elif v >= 2.5:
+        tc = types.ThinkingConfig(thinking_budget=0)
+    else:
+        return config
+    return config.model_copy(update={"thinking_config": tc})
+
+
+def _run(task: str, config, start):
+    """Find a model that answers. `start(client, model, config)` makes the call and returns its result.
+    'Busy' (503) or a timeout -> next model at once. Rate limit (429) -> brief wait, same model.
+    A rejected thinking setting -> same model without it. Anything else (bad key, bad request) -> stop.
+    Returns (result, client); the caller closes the client when done (streaming keeps it open)."""
     tried = []
     t0 = time.monotonic()
     deadline = t0 + TOTAL_BUDGET_S
-    for model in model_candidates():
-        for attempt in range(len(WAITS) + 1):
-            if time.monotonic() > deadline:
-                break
+    for model in model_candidates(task):
+        attempt = 0
+        while attempt <= len(WAITS) and time.monotonic() <= deadline:
+            client = _client()
             try:
-                with _client() as client:
-                    resp = client.models.generate_content(model=model, contents=contents, config=config)
-                _RESOLVED["model"] = model
+                result = start(client, model, _with_min_thinking(config, model))
+                _RESOLVED["model"] = _RESOLVED[f"model_{task}"] = model
                 _RESOLVED["last_call"] = (f"Answered by {model} in {time.monotonic() - t0:.0f}s"
                                           + (f" · skipped: {'; '.join(tried)}" if tried else ""))
-                return resp
+                return result, client
             except genai_errors.APIError as e:
+                client.close()
+                if e.code == 400 and "think" in str(e).lower() and model not in _RESOLVED.get("no_thinking_cfg", set()):
+                    _RESOLVED.setdefault("no_thinking_cfg", set()).add(model)
+                    continue                            # same model, without the thinking setting
                 tried.append(f"{model}: {e.code} {e.status or ''}".strip())
                 if e.code == 429 and attempt < len(WAITS):
                     time.sleep(WAITS[attempt])
+                    attempt += 1
                     continue
                 if e.code in RETRY_CODES or e.code == 404:
                     break                               # busy / unavailable / not found: next model
-                raise                                   # e.g. invalid key / bad request: stop
-            except Exception as e:                      # network timeout: this model is too slow, try next
+                raise
+            except Exception as e:
+                client.close()
                 if "timeout" not in type(e).__name__.lower() and "timed out" not in str(e).lower():
                     raise
                 tried.append(f"{model}: timed out after {REQUEST_TIMEOUT_S}s")
@@ -100,7 +129,14 @@ def _generate(contents: str, config: types.GenerateContentConfig):
                        "few minutes. Models tried: " + "; ".join(tried))
 
 
-APP_VERSION = "v8 (Gemini, model fallback)"
+def _generate(contents: str, config: types.GenerateContentConfig, task: str = "intake"):
+    resp, client = _run(task, config,
+                        lambda c, model, cfg: c.models.generate_content(model=model, contents=contents, config=cfg))
+    client.close()
+    return resp
+
+
+APP_VERSION = "v9 (Gemini, fast drafts)"
 
 
 def _client() -> genai.Client:
@@ -171,12 +207,36 @@ Rules:
 - Sign off as "BharatTrip Refunds Team". Output only the message."""
 
 
+def update_source(facts: dict) -> str:
+    return "Facts (computed by code from both trackers):\n" + "\n".join(f"- {k}: {v}" for k, v in facts.items())
+
+
+def draft_agent_update_stream(facts: dict):
+    """Yields the message piece by piece as Gemini writes it, so the user sees words immediately."""
+    source = update_source(facts)
+    config = types.GenerateContentConfig(system_instruction=UPDATE_SYSTEM, temperature=0.3)
+
+    def start(client, model, cfg):
+        stream = client.models.generate_content_stream(model=model, contents=source, config=cfg)
+        first = next(stream)          # busy/timeout errors surface here, so fallback still works
+        return first, stream
+
+    (first, stream), client = _run("draft", config, start)
+    try:
+        if first.text:
+            yield first.text
+        for chunk in stream:
+            if chunk.text:
+                yield chunk.text
+    finally:
+        client.close()
+
+
 def draft_agent_update(facts: dict) -> tuple[str, str]:
-    source = "Facts (computed by code from both trackers):\n" + "\n".join(f"- {k}: {v}" for k, v in facts.items())
-    resp = _generate(source, types.GenerateContentConfig(system_instruction=UPDATE_SYSTEM, temperature=0.3))
-    if not resp.text:
+    text = "".join(draft_agent_update_stream(facts)).strip()
+    if not text:
         raise RuntimeError("Gemini returned no text (possibly blocked by a safety filter).")
-    return resp.text.strip(), source
+    return text, update_source(facts)
 
 
 def numbers_not_in_facts(draft: str, facts: dict) -> list[str]:

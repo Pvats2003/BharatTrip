@@ -75,6 +75,7 @@ def test_gemini_retry_then_fallback(monkeypatch):
         models = FakeModels()
         def __enter__(self): return self
         def __exit__(self, *a): return False
+        def close(self): pass
 
     monkeypatch.setattr(ai, "_client", lambda: FakeClient())
     monkeypatch.setattr(ai, "WAITS", (0, 0))
@@ -109,6 +110,7 @@ def test_gemini_timeout_moves_to_next_model(monkeypatch):
         models = FakeModels()
         def __enter__(self): return self
         def __exit__(self, *a): return False
+        def close(self): pass
 
     monkeypatch.setattr(ai, "_client", lambda: FakeClient())
     monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
@@ -133,6 +135,7 @@ def test_gemini_429_retries_same_model(monkeypatch):
         models = FakeModels()
         def __enter__(self): return self
         def __exit__(self, *a): return False
+        def close(self): pass
 
     monkeypatch.setattr(ai, "_client", lambda: FakeClient())
     monkeypatch.setattr(ai, "WAITS", (0, 0))
@@ -154,6 +157,7 @@ def test_gemini_all_busy_lists_models_tried(monkeypatch):
         models = FakeModels()
         def __enter__(self): return self
         def __exit__(self, *a): return False
+        def close(self): pass
 
     monkeypatch.setattr(ai, "_client", lambda: FakeClient())
     monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
@@ -170,3 +174,77 @@ def test_candidate_view_payout_and_late_flag(m):
     assert v.loc["RF-1145", "payout_inr"] == 21300 - 1700        # pending: requested minus deduction
     assert bool(v.loc["RF-1145", "logged_after_message"]) is True
     assert v.loc["RF-1023", "payout_inr"] == 11400                # paid: what Finance actually paid
+
+
+
+def test_min_thinking_per_model_generation():
+    from google.genai import types
+    cfg = types.GenerateContentConfig(temperature=0)
+    assert ai._with_min_thinking(cfg, "gemini-3.8-flash").thinking_config.thinking_level == types.ThinkingLevel.MINIMAL
+    assert ai._with_min_thinking(cfg, "gemini-2.5-flash-lite").thinking_config.thinking_budget == 0
+    assert ai._with_min_thinking(cfg, "gemini-2.0-flash").thinking_config is None
+
+
+def test_drafting_tries_flash_lite_first(monkeypatch):
+    monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
+    ai._RESOLVED.clear()
+    ai._RESOLVED.update(candidates=["gemini-3.8-flash", "gemini-2.5-flash", "gemini-3.8-flash-lite"], available=[])
+    assert ai.model_candidates("draft")[0] == "gemini-3.8-flash-lite"
+    assert ai.model_candidates("intake")[0] == "gemini-3.8-flash"
+
+
+class _Chunk:
+    def __init__(self, t): self.text = t
+
+
+def _fake_client(behaviour, calls):
+    class FakeModels:
+        def generate_content_stream(self, model, contents, config):
+            calls.append((model, getattr(config, "thinking_config", None) is not None))
+            return behaviour(model, config)
+
+    class FakeClient:
+        models = FakeModels()
+        def close(self): pass
+    return lambda: FakeClient()
+
+
+def test_streaming_falls_back_when_first_model_busy(monkeypatch):
+    from google.genai import errors as ge
+    from google.genai import types
+    calls = []
+
+    def behaviour(model, config):
+        def gen():
+            if model == "gemini-9.0-flash-lite":
+                raise ge.ServerError(503, {"error": {"code": 503, "message": "busy", "status": "UNAVAILABLE"}})
+            yield _Chunk("Hello ")
+            yield _Chunk("agent.")
+        return gen()
+
+    monkeypatch.setattr(ai, "_client", _fake_client(behaviour, calls))
+    monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
+    ai._RESOLVED.clear()
+    ai._RESOLVED.update(candidates=["gemini-9.0-flash", "gemini-9.0-flash-lite"], available=[])
+    assert "".join(ai.draft_agent_update_stream({"Refund reference": "RF-1"})) == "Hello agent."
+    assert [c[0] for c in calls] == ["gemini-9.0-flash-lite", "gemini-9.0-flash"]   # lite first, then fallback
+
+
+def test_rejected_thinking_setting_retries_without_it(monkeypatch):
+    from google.genai import errors as ge
+    calls = []
+
+    def behaviour(model, config):
+        def gen():
+            if config.thinking_config is not None:
+                raise ge.ClientError(400, {"error": {"code": 400, "message": "thinking_level is not supported",
+                                                     "status": "INVALID_ARGUMENT"}})
+            yield _Chunk("ok")
+        return gen()
+
+    monkeypatch.setattr(ai, "_client", _fake_client(behaviour, calls))
+    monkeypatch.setattr(ai, "MODEL_OVERRIDE", None)
+    ai._RESOLVED.clear()
+    ai._RESOLVED.update(candidates=["gemini-3.8-flash-lite"], available=[])
+    assert "".join(ai.draft_agent_update_stream({"a": 1})) == "ok"
+    assert calls == [("gemini-3.8-flash-lite", True), ("gemini-3.8-flash-lite", False)]

@@ -52,3 +52,22 @@ def test_internal_note_shows_records_not_ticket():
     at = run(NOTE)
     t = text(at)
     assert "not a refund request" in t and "69 refunds" in t
+
+
+
+def test_saved_draft_shows_instantly_without_ai():
+    import json
+    import pandas as pd
+    import recon
+    m = recon.load_and_reconcile(pd.read_excel("data/BharatTrip_Refund_Data.xlsx", "Support_Tracker"),
+                                 pd.read_excel("data/BharatTrip_Refund_Data.xlsx", "Finance_Tracker"))[0]
+    pc = recon.problem_cases(m, recon.SNAPSHOT)
+    rid = pc.refund_id.iloc[0]                                  # first refund in tab 3's list
+    facts = recon.refund_facts(m[m.refund_id == rid].iloc[0])
+    at = AppTest.from_file("../app.py", default_timeout=60)
+    at.session_state["draft_cache"] = {(rid, json.dumps(facts, sort_keys=True, default=str)):
+                                       {"text": "Hello", "source": "s", "flags": [], "call": ""}}
+    at.run()
+    assert not at.exception, at.exception
+    assert any("Saved draft (instant)" in c.value for c in at.caption)
+    assert any(b.label == "Redraft with AI" for b in at.button)
