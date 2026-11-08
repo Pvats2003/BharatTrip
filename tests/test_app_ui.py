@@ -1,7 +1,20 @@
 """Render the intake tab with hand-written stand-ins for the AI output (no API call) and check what a user sees."""
+import os
+import tempfile
 from datetime import date
 
-from streamlit.testing.v1 import AppTest
+import pytest
+
+# Approvals go to a throwaway file during tests (set before the app imports approvals.py)
+os.environ["APPROVAL_LOG_PATH"] = os.path.join(tempfile.mkdtemp(), "approval_log.csv")
+
+from streamlit.testing.v1 import AppTest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def fresh_log():
+    if os.path.exists(os.environ["APPROVAL_LOG_PATH"]):
+        os.remove(os.environ["APPROVAL_LOG_PATH"])
 
 SRC = "Channel: Email\nFrom: Peak Journeys\nReceived: 2026-06-05\n\nMessage:\n..."
 PEAK = {"message_type": "refund_request_from_agent", "agent_name": "Peak Journeys", "route": "DEL-DXB",
@@ -14,8 +27,9 @@ NOTE = {"message_type": "internal_note", "agent_name": None, "route": None, "amo
         "summary_english": "Support agent says Finance never received refunds they closed.", "evidence": []}
 
 
-def run(fields):
+def run(fields, name=""):
     at = AppTest.from_file("../app.py", default_timeout=60)
+    at.session_state["approver"] = name
     at.session_state["intake"] = {"fields": fields, "source": SRC, "received": date(2026, 6, 5), "channel": "Email"}
     at.run()
     assert not at.exception, at.exception
@@ -30,22 +44,44 @@ def text(at):
 def test_peak_journeys_plain_view():
     at = run(PEAK)
     t = text(at)
-    assert "not in our records" in t and "never logged" in t
+    assert "Not in our records" in t and "never logged" in t
     assert "DRAFT-001" in " ".join(at.radio[0].options)
-    assert "Amount not stated in the message" in t          # default = new ticket, no amount guessed
+    assert "Not stated in the message" in t and "Confirm it with the agent" in t   # no amount guessed
 
 
 def test_linking_rf1145_shows_amount_with_proof():
-    at = run(PEAK)
+    import approvals
+    at = run(PEAK, name="Test Approver")
     opt = next(o for o in at.radio[0].options if "RF-1145" in o)
     at.radio[0].set_value(opt).run()
     t = text(at)
     assert "₹21,300" in t and "₹1,700" in t and "₹19,600" in t
     assert "Support tracker" in t and "Finance tracker" in t
     next(b for b in at.button if "Approve and send" in b.label).click().run()   # approve
-    assert any("Download approval log" in b.label for b in at.get("download_button")), "no download button after approve"
-    log = at.session_state["approved"][-1]
-    assert log["refund_id"] == "RF-1145" and log["payout_inr"] == 19600 and log["owner"] == "Finance"
+    assert not at.exception, at.exception
+    log = approvals.load(os.environ["APPROVAL_LOG_PATH"])
+    assert len(log) == 1
+    row = log.iloc[0]
+    assert row.refund_id == "RF-1145" and float(row.payout_inr) == 19600 and row.owner == "Finance"
+    assert row.approved_by == "Test Approver"
+    assert "Approved and logged" in text(at)
+    # approving again (refresh, double click) must not create a second row
+    assert not any("Approve and send" in b.label for b in at.button)
+
+
+def test_approve_needs_a_name():
+    at = run(PEAK)
+    assert not any("Approve and send" in b.label for b in at.button)
+    assert any("Enter your name" in c.value for c in at.caption)
+
+
+def test_link_to_refund_without_amount_does_not_crash():
+    # RF-1533: closed in Support, missing in Finance, and no amount recorded (used to crash)
+    fields = dict(PEAK, agent_name=None, route=None, booking_reference="RF-1533",
+                  evidence=[{"field": "booking_reference", "quote": "RF-1533"}])
+    at = run(fields)
+    assert not at.exception, at.exception
+    assert "Amount unknown" in text(at) or "confirm the amount" in text(at).lower()
 
 
 def test_internal_note_shows_records_not_ticket():
@@ -69,5 +105,5 @@ def test_saved_draft_shows_instantly_without_ai():
                                        {"text": "Hello", "source": "s", "flags": [], "call": ""}}
     at.run()
     assert not at.exception, at.exception
-    assert any("Saved draft (instant)" in c.value for c in at.caption)
+    assert any("Saved draft" in c.value for c in at.caption)
     assert any("Redraft with AI" in b.label for b in at.button)

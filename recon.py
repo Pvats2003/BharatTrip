@@ -98,8 +98,29 @@ FINANCE_STATUS = {"refund done": "Refund Done", "pending payout": "Pending Payou
 STATUS_RANK = {"Closed": 3, "Not Eligible": 3, "Escalated": 2, "Working": 1}
 
 
+class TrackerFormatError(ValueError):
+    """Raised when an uploaded tracker is missing columns we need. The message is safe to show users."""
+
+
+def _check_columns(raw: pd.DataFrame, expected: dict, name: str):
+    have = {str(c).strip() for c in raw.columns}
+    missing = [c for c in expected if c not in have]
+    if missing:
+        raise TrackerFormatError(f"The {name} tracker is missing these columns: {', '.join(missing)}. "
+                                 f"Expected columns: {', '.join(expected)}.")
+
+
+def _drop_bad_ids(df: pd.DataFrame, log: CleanLog, sh: str) -> pd.DataFrame:
+    bad = df["refund_id"].isna()
+    if bad.any():
+        log.add(sh, "Dropped rows with no usable refund ID (blank or unreadable)", bad.sum())
+    return df[~bad]
+
+
 def clean_support(raw: pd.DataFrame, log: CleanLog) -> pd.DataFrame:
     sh = "Support"
+    raw = raw.rename(columns=lambda c: str(c).strip())
+    _check_columns(raw, SUPPORT_COLS, "Support")
     df = raw.rename(columns=SUPPORT_COLS)[list(SUPPORT_COLS.values())].copy()
     log.add(sh, "Rows read", len(df))
 
@@ -111,6 +132,7 @@ def clean_support(raw: pd.DataFrame, log: CleanLog) -> pd.DataFrame:
     log.add(sh, "Normalised ticket ID to RF-#### (spaces, case, missing hyphen, trailing space)",
             _count_changed(df["refund_id"], new))
     df["refund_id"] = new
+    df = _drop_bad_ids(df, log, sh)
 
     for c in ["request_date", "s_last_updated"]:
         txt = df[c].map(lambda v: isinstance(v, str))
@@ -156,6 +178,8 @@ def clean_support(raw: pd.DataFrame, log: CleanLog) -> pd.DataFrame:
 
 def clean_finance(raw: pd.DataFrame, log: CleanLog) -> pd.DataFrame:
     sh = "Finance"
+    raw = raw.rename(columns=lambda c: str(c).strip())
+    _check_columns(raw, FINANCE_COLS, "Finance")
     df = raw.rename(columns=FINANCE_COLS)[list(FINANCE_COLS.values())].copy()
     log.add(sh, "Rows read", len(df))
 
@@ -168,6 +192,7 @@ def clean_finance(raw: pd.DataFrame, log: CleanLog) -> pd.DataFrame:
     new = df["refund_id"].map(norm_id)
     log.add(sh, "Normalised Ref No to RF-#### (all variants incl. revised)", _count_changed(df["refund_id"], new))
     df["refund_id"] = new
+    df = _drop_bad_ids(df, log, sh)
 
     for c in ["f_received", "f_processed"]:
         txt = df[c].map(lambda v: isinstance(v, str))
@@ -312,7 +337,7 @@ def problem_cases(m: pd.DataFrame, today: pd.Timestamp = SNAPSHOT) -> pd.DataFra
             rows.append({
                 "refund_id": r.refund_id, "agent": r.agent if pd.notna(r.agent) else r.f_agent,
                 "issue": issue, "owner": owner if pd.notna(owner) else "Unassigned",
-                "age_days": (today - since).days if pd.notna(since) else None,
+                "age_days": max((today - since).days, 0) if pd.notna(since) else None,
                 "next_action": action,
                 "support_amount": r.s_amount, "finance_paid": r.f_paid,
                 "deduction": r.f_deduction, "channel": r.channel,
@@ -328,7 +353,7 @@ def closed_not_paid(m: pd.DataFrame, today: pd.Timestamp = SNAPSHOT, days: int =
     and Support closed it more than `days` days ago."""
     c = m[(m.s_status == "Closed")
           & m.true_state.isin(["Closed in Support, missing in Finance", "Pending in Finance"])].copy()
-    c["days_since_closed"] = (today - c.s_last_updated).dt.days
+    c["days_since_closed"] = (today - c.s_last_updated).dt.days.clip(lower=0)
     return c[c.days_since_closed > days]
 
 

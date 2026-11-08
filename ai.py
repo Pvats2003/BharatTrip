@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from typing import Literal, Optional
 
+import logging
 import os
 
 from google import genai
@@ -22,6 +23,9 @@ import re as _re
 import time
 
 from google.genai import errors as genai_errors
+
+log = logging.getLogger("refund_desk.ai")
+MAX_MESSAGE_CHARS = 5000             # longer pastes are rejected with a clear message
 
 MODEL_OVERRIDE = os.environ.get("GEMINI_MODEL")  # optional; otherwise picked automatically
 _RESOLVED: dict = {}   # remembers the model list and which model last answered
@@ -103,6 +107,7 @@ def _run(task: str, config, start):
             try:
                 result = start(client, model, _with_min_thinking(config, model))
                 _RESOLVED["model"] = _RESOLVED[f"model_{task}"] = model
+                log.info("gemini ok task=%s model=%s secs=%.1f skipped=%s", task, model, time.monotonic() - t0, tried)
                 _RESOLVED["last_call"] = (f"Answered by {model} in {time.monotonic() - t0:.0f}s"
                                           + (f" · skipped: {'; '.join(tried)}" if tried else ""))
                 return result, client
@@ -125,6 +130,7 @@ def _run(task: str, config, start):
                     raise
                 tried.append(f"{model}: timed out after {REQUEST_TIMEOUT_S}s")
                 break
+    log.warning("gemini unavailable task=%s tried=%s", task, tried)
     raise RuntimeError("Gemini is busy right now on every Flash model this key can use. Please try again in a "
                        "few minutes. Models tried: " + "; ".join(tried))
 
@@ -136,7 +142,7 @@ def _generate(contents: str, config: types.GenerateContentConfig, task: str = "i
     return resp
 
 
-APP_VERSION = "v10 (polished UI)"
+APP_VERSION = "v11 (enterprise)"
 
 
 def _client() -> genai.Client:
@@ -247,3 +253,20 @@ def numbers_not_in_facts(draft: str, facts: dict) -> list[str]:
             allowed.add(n.replace(",", ""))
     found = re.findall(r"\d[\d,]{2,}", draft)  # 3+ digit numbers (amounts, refs)
     return sorted({n for n in found if n.replace(",", "") not in allowed})
+
+
+def friendly_error(e: Exception) -> tuple[str, str]:
+    """Turn any AI failure into (short message for the user, technical detail for the audit expander)."""
+    detail = f"{type(e).__name__}: {e}"
+    log.warning("ai error: %s", detail)
+    text = str(e).lower()
+    code = getattr(e, "code", None)
+    if code in (401, 403) or "api key not valid" in text or "permission" in text:
+        return "The AI service rejected the API key. Ask your administrator to check GEMINI_API_KEY.", detail
+    if code == 429 or "quota" in text or "resource_exhausted" in text:
+        return "The AI service's free-tier limit was reached. Wait a minute and try again.", detail
+    if "busy" in text or code in (500, 503, 504) or "timed out" in text:
+        return "The AI service is busy right now. Wait a minute and try again. Nothing was lost.", detail
+    if "safety" in text or "blocked" in text:
+        return "The AI service declined this text. Please handle this one manually.", detail
+    return "The AI step failed. Please try again; if it keeps failing, handle this one manually.", detail
