@@ -17,11 +17,11 @@ Without a key, tab ① (the reconciliation and problem list) works fully, and th
 3. Under **Advanced settings → Secrets**, paste `GEMINI_API_KEY = "your-key"` (free key from aistudio.google.com), then click **Deploy**.
 
 ## What it does
-| Tab | What happens | Who does the work |
+| Tab | For | What happens |
 |---|---|---|
-| ① Daily problem cases | Upload both trackers → clean → join on refund ID → one true state per refund → worklist with owner, age in days and next action | Plain code (`recon.py`) |
-| ② AI intake | Paste an email/WhatsApp (Hinglish OK) → Gemini returns fixed JSON fields plus an exact quote for each → code matches to existing refunds and links or creates a draft ticket → a human approves | AI reads the text; code does matching and dates (`matching.py`) |
-| ③ AI agent update | Pick a refund → code builds the facts (state, amounts, deduction) → Gemini drafts a short message → code checks every ₹ figure is in the facts → a human edits and approves | AI writes; code supplies and checks the numbers |
+| 📋 Today's worklist | Support and Finance leads, every morning | Every refund needing action, most urgent first (🔴 agent told "done" but not paid). Filter by person or problem, search, and tick a case to see **what Support says vs what Finance says**, the next step and its owner. All plain code (`recon.py`). |
+| 📨 New message → ticket | Whoever reads the inbox or WhatsApp | Paste a message (Hinglish OK). Gemini reads it into facts with exact quotes; code checks both trackers and either links to the refund (amount and payout worked out by code, with source) or creates a new ticket. You approve. |
+| ✉️ Reply to agent | Support | Pick a refund and get a short status message built only from tracker facts, explaining any deduction. A number check flags any amount not in the facts. Edit, approve, copy. |
 
 **Design rule:** matching and money are never done by the AI. Every AI output is shown next to the exact source it was given, and nothing counts as sent until a human clicks Approve (approvals download as a CSV log). The prototype never sends anything itself.
 

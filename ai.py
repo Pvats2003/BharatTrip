@@ -136,7 +136,7 @@ def _generate(contents: str, config: types.GenerateContentConfig, task: str = "i
     return resp
 
 
-APP_VERSION = "v9 (Gemini, fast drafts)"
+APP_VERSION = "v10 (polished UI)"
 
 
 def _client() -> genai.Client:

@@ -70,4 +70,4 @@ def test_saved_draft_shows_instantly_without_ai():
     at.run()
     assert not at.exception, at.exception
     assert any("Saved draft (instant)" in c.value for c in at.caption)
-    assert any(b.label == "Redraft with AI" for b in at.button)
+    assert any("Redraft with AI" in b.label for b in at.button)

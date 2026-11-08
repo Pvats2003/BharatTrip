@@ -17,7 +17,7 @@ import streamlit as st
 import matching
 import recon
 
-st.set_page_config(page_title="BharatTrip Refund Desk", layout="wide")
+st.set_page_config(page_title="BharatTrip Refund Desk", page_icon="🧾", layout="wide")
 SAMPLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "BharatTrip_Refund_Data.xlsx")
 try:  # Streamlit Cloud: values in the Secrets box are copied into environment variables
     for _k in ("GEMINI_API_KEY", "GEMINI_MODEL"):
@@ -29,6 +29,53 @@ AI_READY = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_K
 
 for k, v in {"drafts": [], "approved": []}.items():
     st.session_state.setdefault(k, v)
+
+st.markdown("""<style>
+.block-container {padding-top: 2rem;}
+div[data-testid="stMetric"] {background: rgba(128,128,128,.07); border-radius: 10px; padding: 10px 14px;}
+.case-box {border: 1px solid rgba(128,128,128,.3); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;}
+.muted {color: gray; font-size: 0.9em;}
+</style>""", unsafe_allow_html=True)
+
+# Plain-language names for each problem type: (priority, short label, explanation, short next step)
+PROBLEMS = {
+    "Closed in Support, missing in Finance":
+        (1, "🔴 'Done', not in Finance", "Support closed it and told the agent, but Finance has no record.",
+         "Send to Finance; reopen ticket"),
+    "Closed in Support, not yet paid (Finance pending)":
+        (1, "🔴 'Done', still unpaid", "Support told the agent it was done, but Finance has not paid yet.",
+         "Finance: pay · Support: correct the agent"),
+    "Logged twice in Finance: check for double payout":
+        (2, "🟠 Possible double payout", "Finance logged this refund twice. Check the bank statement.",
+         "Finance: check bank for 2nd payout"),
+    "Pending in Finance":
+        (2, "🟠 Awaiting payout", "Finance has it but has not paid yet.", "Finance: sign off and pay"),
+    "In Finance only":
+        (3, "🟡 No Support ticket", "Finance handled it, but Support has no ticket, so the agent may not be updated.",
+         "Support: create ticket, update agent"),
+    "Open in Support":
+        (3, "🟡 Open in Support", "Support has not sent it to Finance yet.", "Support: decide and send to Finance"),
+    "Paid less than Support promised (deduction)":
+        (4, "🔵 Explain deduction", "Paid, but less than requested. Tell the agent why.",
+         "Support: explain deduction to agent"),
+}
+
+
+def problem(issue):
+    if issue in PROBLEMS:
+        return PROBLEMS[issue]
+    return (3, f"🟡 {issue[:28]}", issue, "See case")
+
+
+def lakh(x):
+    """Indian-style short amount for headline cards."""
+    if pd.isna(x):
+        return "—"
+    return f"₹{x / 1e5:.1f} lakh" if abs(x) >= 1e5 else f"₹{x:,.0f}"
+
+
+def money(x):
+    return f"₹{x:,.0f}" if pd.notna(x) else "—"
 
 
 # ------------------------------------------------------------------ data
@@ -45,29 +92,39 @@ def reconcile_bytes(sup_bytes, sup_name, fin_bytes, fin_name):
     return m, log
 
 
-st.sidebar.title("BharatTrip Refund Desk")
-st.sidebar.caption("Upload both trackers, or use the sample extract.")
-up_s = st.sidebar.file_uploader("Support tracker (.xlsx / .csv)", type=["xlsx", "csv"])
-up_f = st.sidebar.file_uploader("Finance tracker (.xlsx / .csv)", type=["xlsx", "csv"])
-if up_s and up_f:
-    m, cleanlog = reconcile_bytes(up_s.getvalue(), up_s.name, up_f.getvalue(), up_f.name)
-    st.sidebar.success("Using uploaded trackers")
-else:
-    b = open(SAMPLE, "rb").read()
-    m, cleanlog = reconcile_bytes(b, SAMPLE, b, SAMPLE)
-    st.sidebar.info("Using sample extract (snapshot 30 Jun 2026)")
-today = pd.Timestamp(st.sidebar.date_input("Today's date (for ages)", value=date(2026, 6, 30)))
-sla = st.sidebar.number_input("Closed-but-unpaid alert after (days)", 1, 60, 7)
-st.sidebar.markdown("---")
-st.sidebar.write("AI features:", "✅ ready" if AI_READY else "⚠️ set `GEMINI_API_KEY`")
-import ai as _ai  # noqa: E402
-st.sidebar.caption(f"Build {_ai.APP_VERSION} · model: {_ai.MODEL_OVERRIDE or _ai._RESOLVED.get('model', 'auto (picked on first AI call)')}")
-st.sidebar.write(f"Approved items this session: **{len(st.session_state.approved)}**")
-if st.session_state.approved:
-    st.sidebar.download_button("Download approval log (CSV)",
-                               pd.DataFrame(st.session_state.approved).to_csv(index=False),
-                               "approval_log.csv")
+# ------------------------------------------------------------------ sidebar
+with st.sidebar:
+    st.markdown("### 🧾 Refund Desk")
+    st.markdown("**📂 Data**")
+    with st.expander("Use your own trackers"):
+        up_s = st.file_uploader("Support tracker (.xlsx / .csv)", type=["xlsx", "csv"])
+        up_f = st.file_uploader("Finance tracker (.xlsx / .csv)", type=["xlsx", "csv"])
+    if up_s and up_f:
+        m, cleanlog = reconcile_bytes(up_s.getvalue(), up_s.name, up_f.getvalue(), up_f.name)
+        st.success("Using your uploaded trackers")
+    else:
+        b = open(SAMPLE, "rb").read()
+        m, cleanlog = reconcile_bytes(b, SAMPLE, b, SAMPLE)
+        st.info("Using sample data (snapshot 30 Jun 2026)")
 
+    with st.expander("⚙️ Settings"):
+        today = pd.Timestamp(st.date_input("Today's date (used for 'days waiting')", value=date(2026, 6, 30)))
+        sla = st.number_input("Flag 'told done but not paid' after (days)", 1, 60, 7)
+
+    st.markdown("**✅ Approvals this session**")
+    n_appr = len(st.session_state.approved)
+    if n_appr:
+        st.download_button(f"⬇️ Download approval log ({n_appr})",
+                           pd.DataFrame(st.session_state.approved).to_csv(index=False),
+                           "approval_log.csv", width="stretch")
+    else:
+        st.caption("Nothing approved yet. Approved tickets and messages appear here for download.")
+
+    st.markdown("---")
+    import ai as _ai  # noqa: E402
+    st.caption(("AI ready" if AI_READY else "AI off: set GEMINI_API_KEY") +
+               f" · Build {_ai.APP_VERSION} · model: "
+               f"{_ai.MODEL_OVERRIDE or _ai._RESOLVED.get('model', 'auto')}")
 
 
 def log_download(key):
@@ -79,38 +136,136 @@ def log_download(key):
                            "approval_log.csv", key=key)
 
 
-tab1, tab2, tab3 = st.tabs(["① Daily problem cases", "② AI intake (email / WhatsApp)", "③ AI agent update"])
+def reply_label(rid):
+    """How a refund is shown in the 'Reply to agent' picker."""
+    r = m[m.refund_id == rid].iloc[0]
+    agent = r.agent if pd.notna(r.agent) else r.f_agent
+    return f"{rid} · {agent} · {r.true_state}"
+
+
+# ------------------------------------------------------------------ header
+st.title("BharatTrip Refund Desk")
+st.markdown("Every refund that needs action today, in one place. Built from the **Support** and **Finance** "
+            "trackers. AI only reads messages and drafts replies; all numbers come from the trackers, "
+            "and nothing is saved or sent until you approve it.")
+with st.expander("How to use this (30 seconds)"):
+    st.markdown("""
+1. **📋 Today's worklist**: start here. Urgent cases (🔴) are at the top. Click a case to see what Support and Finance each say, and what to do next.
+2. **📨 New message → ticket**: paste an email or WhatsApp from an agent (Hinglish is fine). The app finds the refund in the trackers, or creates a new ticket, with the amount and its proof.
+3. **✉️ Reply to agent**: pick a refund and get a ready-to-send status message, explaining any deduction. Edit it, approve it, copy it.
+
+Everything you approve goes into the **approval log** (left sidebar) for the next team.
+""")
+
+tab1, tab2, tab3 = st.tabs(["📋 Today's worklist", "📨 New message → ticket", "✉️ Reply to agent"])
 
 # ------------------------------------------------------------------ tab 1
 with tab1:
     pc = recon.problem_cases(m, today)
+    pc["priority"], pc["problem"], pc["why"], pc["short_step"] = zip(*pc.issue.map(problem))
     cnp = recon.closed_not_paid(m, today, sla)
+    dbl = pc[pc.issue.str.startswith("Logged twice")]
+
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric(f"Closed, unpaid > {sla} days", len(cnp), help="Target: near zero")
-    c2.metric("Open problem cases", len(pc))
-    c3.metric("Pending in Finance", int((m.true_state == "Pending in Finance").sum()))
-    c4.metric("Refunds reconciled", len(m))
+    c1.metric("Told 'done', unpaid", len(cnp),
+              help=f"Support marked these Closed more than {sla} days ago, but Finance has not paid. Target: zero.")
+    c1.caption(f"over {sla} days · {lakh(cnp.s_amount.sum())} owed · target 0")
+    urgent = pc[pc.priority == 1]
+    c2.metric("🔴 Urgent cases", len(urgent), help="Agent was told 'done' but the money has not gone out.")
+    c2.caption(f"of {len(pc)} cases needing any action")
+    fin_wait = pc[pc.owner == "Finance"]
+    c3.metric("Waiting on Finance", len(fin_wait), help="Payout, sign-off or a bank check needed from Finance.")
+    c3.caption(f"{lakh(m[m.true_state == 'Pending in Finance'].s_amount.sum())} not yet paid")
+    c4.metric("Possible double payouts", len(dbl), help="Logged twice in Finance. Check the bank statement.")
+    c4.caption(f"{lakh(dbl.finance_paid.sum())} to check")
 
-    st.subheader("Today's worklist")
-    st.caption("Every row comes from rules in recon.py. No AI is involved in this list.")
-    f1, f2 = st.columns(2)
-    issues = f1.multiselect("Issue", sorted(pc.issue.unique()), default=sorted(pc.issue.unique()))
-    owners = f2.multiselect("Owner", sorted(pc.owner.unique()), default=sorted(pc.owner.unique()))
-    view = pc[pc.issue.isin(issues) & pc.owner.isin(owners)]
-    st.dataframe(view, width="stretch", hide_index=True,
-                 column_config={"age_days": st.column_config.NumberColumn("age (days)"),
-                                "support_amount": st.column_config.NumberColumn(format="₹%d"),
-                                "finance_paid": st.column_config.NumberColumn(format="₹%d"),
-                                "deduction": st.column_config.NumberColumn(format="₹%d")})
-    st.download_button("Download worklist (CSV)", view.to_csv(index=False), "problem_cases.csv")
+    st.markdown("#### What needs action")
+    f1, f2, f3 = st.columns([1.2, 1.6, 1])
+    handlers = sorted(h for h in pc.owner.unique() if h not in ("Finance", "Support", "Unassigned"))
+    owner_opts = ["Everyone", "Finance", "Support (all)"] + handlers + (["Unassigned"] if "Unassigned" in set(pc.owner) else [])
+    who = f1.selectbox("Show cases for", owner_opts)
+    order = pc.drop_duplicates("problem").sort_values("priority").problem.tolist()
+    counts = pc.problem.value_counts()
+    prob_opts = [f"All problems ({len(pc)})"] + [f"{p} ({counts[p]})" for p in order]
+    pick = f2.selectbox("Problem", prob_opts)
+    q = f3.text_input("Search", placeholder="Refund ID or agent")
 
-    with st.expander("Summary by owner"):
-        st.dataframe(pc.pivot_table(index="owner", columns="issue", values="refund_id",
-                                    aggfunc="count", fill_value=0), width="stretch")
-    with st.expander("True state of every refund"):
-        st.dataframe(m.true_state.value_counts().rename("refunds"))
-    with st.expander("Cleaning log (every rule and rows affected)"):
-        st.dataframe(cleanlog, width="stretch", hide_index=True)
+    view = pc
+    if who == "Finance":
+        view = view[view.owner == "Finance"]
+    elif who == "Support (all)":
+        view = view[view.owner != "Finance"]
+    elif who != "Everyone":
+        view = view[view.owner == who]
+    if not pick.startswith("All problems"):
+        view = view[view.problem == pick.rsplit(" (", 1)[0]]
+    if q.strip():
+        ql = q.strip().lower()
+        view = view[view.refund_id.str.lower().str.contains(ql, regex=False)
+                    | view.agent.fillna("").str.lower().str.contains(ql, regex=False)]
+    view = view.sort_values(["priority", "age_days"], ascending=[True, False])
+
+    table = pd.DataFrame({
+        "Problem": view.problem, "Refund": view.refund_id, "Agent": view.agent,
+        "Days waiting": view.age_days, "Owner": view.owner, "Next step": view.short_step,
+        "Amount": view.support_amount.fillna(view.finance_paid).map(money),
+    })
+    st.caption(f"Showing {len(table)} of {len(pc)} cases · most urgent and oldest first · "
+               "tick a row to open the case below")
+    sel = st.dataframe(
+        table, hide_index=True, width="stretch", height=300, on_select="rerun", selection_mode="single-row",
+        key="worklist",
+        column_config={
+            "Problem": st.column_config.TextColumn(width="medium"),
+            "Days waiting": st.column_config.NumberColumn(format="%d d", help="Days since the last action on it"),
+            "Next step": st.column_config.TextColumn(width="medium"),
+            "Amount": st.column_config.TextColumn(width="small"),
+        })
+    st.download_button("⬇️ Download this list (CSV)", table.to_csv(index=False), "worklist.csv")
+
+    # ---------- case detail
+    rows = sel.selection.rows if sel and sel.selection else []
+    if rows:
+        case = view.iloc[rows[0]]
+        r = m[m.refund_id == case.refund_id].iloc[0]
+        st.markdown(f"#### Case {case.refund_id} · {case.agent}")
+        st.markdown(f"**{case.problem}**: {case.why}")
+        a, b = st.columns(2)
+        with a:
+            st.markdown("**What Support's tracker says**")
+            if pd.notna(r.s_status):
+                st.markdown(f"- Status: **{r.s_status}**, note: “{r.s_notes}”\n"
+                            f"- Requested: **{money(r.s_amount)}** on {r.request_date:%d %b %Y}\n"
+                            f"- Handled by {r.handler} · last updated {r.s_last_updated:%d %b %Y} · via {r.channel}")
+            else:
+                st.warning("No Support ticket at all.")
+        with b:
+            st.markdown("**What Finance's tracker says**")
+            if pd.notna(r.f_status):
+                ded = f", deduction **{money(r.f_deduction)}**" if r.f_deduction and r.f_deduction > 0 else ""
+                paid = (f"Paid **{money(r.f_paid)}** on {r.f_processed:%d %b %Y}" if r.f_status == "Refund Done"
+                        else f"Status: **{r.f_status}**")
+                st.markdown(f"- {paid}{ded}\n"
+                            f"- Remark: “{r.f_remarks}” · received {r.f_received:%d %b %Y}\n"
+                            f"- Approved by: {r.approved_by if pd.notna(r.approved_by) else 'nobody recorded'}")
+            else:
+                st.error("No Finance record at all: this refund never reached Finance.")
+        st.info(f"**Next step** (owner: **{case.owner}**): {case.next_action}")
+        if st.button("✉️ Draft a reply to the agent for this case", type="primary"):
+            st.session_state["reply_pick"] = reply_label(case.refund_id)
+            st.success("Done: open the **✉️ Reply to agent** tab above. This refund is already selected there.")
+    else:
+        st.caption("👆 Click any row to see what Support and Finance each say about it.")
+
+    with st.expander("How these numbers were worked out"):
+        st.markdown("Both trackers are cleaned (IDs, dates, names, duplicates) and joined on the refund ID. "
+                    "Each refund gets one true status. Finance decides whether money moved. No AI is used here.")
+        x, y = st.columns(2)
+        x.markdown("**True status of every refund**")
+        x.dataframe(m.true_state.value_counts().rename_axis("Status").rename("Refunds"), width="stretch")
+        y.markdown("**Cleaning rules applied**")
+        y.dataframe(cleanlog.rename(columns={"sheet": "Sheet", "rule": "Rule", "rows_affected": "Rows"}),
+                    hide_index=True, width="stretch")
 
 # ------------------------------------------------------------------ tab 2
 SAMPLES = {
@@ -127,20 +282,22 @@ SAMPLES = {
 }
 
 with tab2:
-    st.subheader("Turn an informal message into a ticket")
+    st.markdown("#### Turn an email or WhatsApp into a ticket")
     st.caption("Paste an email or WhatsApp message. AI reads it; every amount and match below comes from "
                "our trackers, not the AI. Nothing is saved until you approve.")
-    pick = st.selectbox("Load a message from the brief", list(SAMPLES))
+    pick = st.selectbox("Try an example, or choose '(paste your own)'", list(SAMPLES))
     ch, snd, rcv, txt = SAMPLES[pick]
     a, b_, c_ = st.columns(3)
     channel = a.selectbox("Channel", ["Email", "WhatsApp", "Phone note"], index=["Email", "WhatsApp", "Phone note"].index(ch))
     sender = b_.text_input("From", snd)
     received = c_.date_input("Received on", rcv)
-    message = st.text_area("Message (paste as received)", txt, height=120)
+    message = st.text_area("Message, pasted exactly as received", txt, height=120)
 
-    if st.button("Read message with AI", disabled=not (AI_READY and message.strip())):
+    if not AI_READY:
+        st.warning("AI is switched off (no GEMINI_API_KEY). The worklist still works.")
+    if st.button("🔍 Read message and check our records", type="primary", disabled=not (AI_READY and message.strip())):
         import ai
-        with st.spinner("Reading message…"):
+        with st.spinner("Reading the message and checking both trackers…"):
             try:
                 fields, source = ai.extract_intake(message, channel, sender, str(received))
                 st.session_state.pop("flash_intake", None)
@@ -304,24 +461,33 @@ with tab2:
 
 # ------------------------------------------------------------------ tab 3
 with tab3:
-    st.subheader("Draft a status message to the travel agent")
-    st.caption("Facts are computed by code from both trackers. The AI only turns them into a short message. "
-               "A number check flags any amount in the draft that is not in the facts.")
+    st.markdown("#### Send a status update to a travel agent")
+    st.caption("Pick a refund. The facts come from both trackers; AI only turns them into a short, polite message. "
+               "You edit and approve it before anything is sent.")
     pc_ids = recon.problem_cases(m, today).refund_id.tolist()
-    order = pc_ids + [r for r in m.refund_id.dropna().sort_values() if r not in set(pc_ids)]
-    rid = st.selectbox("Refund (problem cases listed first)", order)
+    order = list(dict.fromkeys(pc_ids + m.refund_id.dropna().sort_values().tolist()))
+    options = [reply_label(x) for x in order]
+    if st.session_state.get("reply_pick") not in options:
+        st.session_state.pop("reply_pick", None)
+    label = st.selectbox("Which refund? (cases needing action are listed first; type to search)", options,
+                         key="reply_pick")
+    rid = label.split(" · ")[0]
     row = m[m.refund_id == rid].iloc[0]
     facts = recon.refund_facts(row)
-    left, right = st.columns(2)
+    left, right = st.columns([1, 1.2])
     with left:
-        st.markdown(f"**True state:** {row.true_state}")
-        st.markdown("**Source: facts the AI will be given**")
-        st.table(pd.Series(facts, name="value"))
+        st.markdown("**Step 1 · Check the facts**")
+        st.markdown("\n".join(f"- **{k}:** {str(v).replace('Rs ', '₹')}" for k, v in facts.items()))
+        st.caption("Worked out by code from both trackers. The message may only use these facts.")
     with right:
+        st.markdown("**Step 2 · Draft the message**")
+        if not AI_READY:
+            st.warning("AI is switched off (no GEMINI_API_KEY).")
         cache = st.session_state.setdefault("draft_cache", {})
         ckey = (rid, json.dumps(facts, sort_keys=True, default=str))   # same refund + same facts = same draft
         d = cache.get(ckey)
-        if st.button("Redraft with AI" if d else "Draft message with AI", disabled=not AI_READY):
+        if st.button("🔄 Redraft with AI" if d else "✍️ Draft message with AI", type="secondary" if d else "primary",
+                     disabled=not AI_READY):
             import ai
             try:
                 st.caption("Writing…")
@@ -340,8 +506,9 @@ with tab3:
                 st.error(f"⚠️ Numbers in the draft that are NOT in the facts: {', '.join(d['flags'])}. Edit before approving.")
             else:
                 st.success("Number check passed: every amount in the draft appears in the facts.")
-            edited = st.text_area("Draft (edit freely)", d["text"], height=220, key=f"edit_{rid}_{hash(d['text'])}")
-            if st.button("✅ Approve message"):
+            st.markdown("**Step 3 · Edit if needed, then approve**")
+            edited = st.text_area("Message to the agent (edit freely)", d["text"], height=220, key=f"edit_{rid}_{hash(d['text'])}")
+            if st.button("✅ Approve message", type="primary"):
                 st.session_state.approved.append({
                     "approved_at": datetime.now().isoformat(timespec="seconds"), "type": "agent_update",
                     "refund_id": rid, "true_state": row.true_state, "message": edited, "source_text": d["source"]})
